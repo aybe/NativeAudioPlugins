@@ -1,53 +1,74 @@
 using System;
 using UnityEngine;
+using UnityEngine.Serialization;
+
+// ReSharper disable InconsistentNaming
 
 public class AudioPlayer : MonoBehaviour
 {
-    public AudioSource AudioSource;
+    [FormerlySerializedAs("AudioSource")] public AudioSource Source;
 
-    [Min(1)] public int GUIScale = 4;
-
+    [FormerlySerializedAs("GUIScale")] [Min(1)]
+    public int Scale = 4;
 
     private void OnGUI()
     {
         var matrix = GUI.matrix;
 
-        GUI.matrix = Matrix4x4.Scale(new Vector3(GUIScale, GUIScale, GUIScale));
+        GUI.matrix = Matrix4x4.Scale(new Vector3(Scale, Scale, Scale));
+        using (new GuiEnabledScope(!Source.isPlaying))
+            if (GUILayout.Button("Play"))
+            {
+                Source.Play();
+            }
 
-        if (GUILayout.Button("Play"))
-        {
-            AudioSource.Play();
-        }
+        using (new GuiEnabledScope(Source.isPlaying))
+            if (GUILayout.Button("Pause"))
+            {
+                Source.Pause();
+            }
 
-        if (GUILayout.Button("Pause"))
-        {
-            AudioSource.Pause();
-        }
+        using (new GuiEnabledScope(Source.isPlaying))
+            if (GUILayout.Button("Stop"))
+            {
+                Source.Stop();
+            }
 
-        if (GUILayout.Button("Stop"))
-        {
-            AudioSource.Stop();
-        }
-
-        var loop1 = AudioSource.loop;
+        var loop1 = Source.loop;
         var loop2 = GUILayout.Toggle(loop1, "Loop");
 
         if (loop1 != loop2)
         {
-            AudioSource.loop = loop2;
+            Source.loop = loop2;
         }
 
-        var time1 = AudioSource.timeSamples;
-        var time2 = (int)GUILayout.HorizontalSlider(time1, 0, AudioSource.clip.samples - 1, GUILayout.Width(300.0f));
+        var time1 = Source.timeSamples;
+        var time2 = (int)GUILayout.HorizontalSlider(time1, 0, Source.clip.samples - 1, GUILayout.Width(300.0f));
 
         if (time1 != time2)
         {
-            AudioSource.timeSamples = time2;
+            Source.timeSamples = time2;
         }
 
-        GUILayout.Label(TimeSpan.FromSeconds(AudioSource.time).ToString(), Styles.Label);
+        GUILayout.Label(TimeSpan.FromSeconds(Source.time).ToString(), Styles.Label);
 
         GUI.matrix = matrix;
+    }
+
+    private readonly struct GuiEnabledScope : IDisposable
+    {
+        private readonly bool enabled;
+
+        public GuiEnabledScope(bool enabled)
+        {
+            this.enabled = GUI.enabled;
+            GUI.enabled = enabled;
+        }
+
+        public void Dispose()
+        {
+            GUI.enabled = enabled;
+        }
     }
 
     private abstract class Styles
