@@ -64,6 +64,7 @@
     <Compile Include="Assets\scripts\DemoSelector.cs" />
     <Compile Include="Assets\scripts\MidiSynthPhrase.cs" />
     <Compile Include="Assets\scripts\GranulatorDebug.cs" />
+    <Compile Include="Assets\scripts\AudioPlayer.cs" />
     <Compile Include="Assets\scripts\FullscreenShader.cs" />
     <Compile Include="Assets\scripts\MicrophoneFeed.cs" />
     <Compile Include="Assets\scripts\ImpactNoiseGenerator.cs" />
