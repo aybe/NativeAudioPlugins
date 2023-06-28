@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Buffers;
 using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
@@ -57,7 +57,7 @@ namespace Wipeout.Extensions
         {
             var pool = ArrayPool<byte>.Shared;
 
-            var size = Unsafe.SizeOf<T>();
+            var size = Marshal.SizeOf<T>();
 
             var rent = pool.Rent(size);
 
@@ -165,7 +165,7 @@ namespace Wipeout.Extensions
         {
             var pool = ArrayPool<byte>.Shared;
 
-            var size = Unsafe.SizeOf<T>();
+            var size = Marshal.SizeOf<T>();
 
             var rent = pool.Rent(size);
 
