@@ -61,6 +61,7 @@
     <Compile Include="Assets\Scripts\Wipeout\Extensions\StreamEndiannessScope.cs" />
     <Compile Include="Assets\Scripts\Wipeout\Extensions\Endianness.cs" />
     <Compile Include="Assets\Scripts\SineOsc.cs" />
+    <Compile Include="Assets\Scripts\Wipeout\SpuReverbFilter16.cs" />
     <Compile Include="Assets\Scripts\SetStartTime.cs" />
     <Compile Include="Assets\Scripts\SilentAudioSource.cs" />
     <Compile Include="Assets\Scripts\GranulatorUploadSample.cs" />
@@ -91,6 +92,7 @@
     <Compile Include="Assets\Scripts\AudioRecorder.cs" />
     <Compile Include="Assets\Scripts\DemoSelectorBackButton.cs" />
     <Compile Include="Assets\Scripts\Wipeout\Extensions\IEnumerableExtensions.cs" />
+    <Compile Include="Assets\Scripts\SpuReverbFilter16Backup.cs" />
     <Compile Include="Assets\Scripts\AudioPlayer.cs" />
     <Compile Include="Assets\Scripts\Wipeout\Extensions\Arrays.cs" />
     <Compile Include="Assets\Scripts\ImpactSignal.cs" />

@@ -18,13 +18,13 @@ namespace Wipeout.Formats.Audio.Sony
             dAPF1   = GetOffset(preset.dAPF1);
             dAPF2   = GetOffset(preset.dAPF2);
             vIIR    = GetCenter(preset.vIIR);
-            vCOMB1  = GetVolume(preset.vCOMB1);
-            vCOMB2  = GetVolume(preset.vCOMB2);
-            vCOMB3  = GetVolume(preset.vCOMB3);
-            vCOMB4  = GetVolume(preset.vCOMB4);
-            vWALL   = GetVolume(preset.vWALL);
-            vAPF1   = GetVolume(preset.vAPF1);
-            vAPF2   = GetVolume(preset.vAPF2);
+            vCOMB1  = GetCenter(preset.vCOMB1);
+            vCOMB2  = GetCenter(preset.vCOMB2);
+            vCOMB3  = GetCenter(preset.vCOMB3);
+            vCOMB4  = GetCenter(preset.vCOMB4);
+            vWALL   = GetCenter(preset.vWALL);
+            vAPF1   = GetCenter(preset.vAPF1);
+            vAPF2   = GetCenter(preset.vAPF2);
             mLSAME  = GetOffset(preset.mLSAME);
             mRSAME  = GetOffset(preset.mRSAME);
             mLCOMB1 = GetOffset(preset.mLCOMB1);
@@ -74,25 +74,11 @@ namespace Wipeout.Formats.Audio.Sony
             }
         }
 
+        #region New region
+
         public int dAPF1;
 
         public int dAPF2;
-
-        public float vIIR;
-
-        public float vCOMB1;
-
-        public float vCOMB2;
-
-        public float vCOMB3;
-
-        public float vCOMB4;
-
-        public float vWALL;
-
-        public float vAPF1;
-
-        public float vAPF2;
 
         public int mLSAME;
 
@@ -134,8 +120,30 @@ namespace Wipeout.Formats.Audio.Sony
 
         public int mRAPF2;
 
+        #endregion
+
+        #region New region
+
+        public float vIIR;
+
+        public float vCOMB1;
+
+        public float vCOMB2;
+
+        public float vCOMB3;
+
+        public float vCOMB4;
+
+        public float vWALL;
+
+        public float vAPF1;
+
+        public float vAPF2;
+
         public float vLIN;
 
         public float vRIN;
+
+        #endregion
     }
 }
