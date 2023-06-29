@@ -1,4 +1,4 @@
-﻿// ReSharper disable IdentifierTypo
+// ReSharper disable IdentifierTypo
 
 using System;
 using System.Collections.Generic;
@@ -85,7 +85,7 @@ namespace Wipeout.Formats.Audio.Extensions
 
             if (bw < fs * 0.01 || bw > fs * 0.49)
             {
-                throw new ArgumentOutOfRangeException(nameof(bw));
+                throw new ArgumentOutOfRangeException(nameof(bw), bw, null);
             }
 
             var k = wt switch

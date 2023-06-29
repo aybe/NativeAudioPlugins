@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics.CodeAnalysis;
 
 namespace Wipeout.Formats.Audio.Sony
@@ -10,7 +10,7 @@ namespace Wipeout.Formats.Audio.Sony
             Settings = new SpuReverbSettings(preset, sampleRate);
         }
 
-        private SpuReverbBuffer<float> Buffer { get; } = new(131072);
+        private SpuReverbBuffer<float> Buffer { get; } = new(131072 * 4);
 
         private SpuReverbSettings Settings { get; }
 

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics.CodeAnalysis;
 
 namespace Wipeout.Formats.Audio.Sony
@@ -6,7 +6,7 @@ namespace Wipeout.Formats.Audio.Sony
     [SuppressMessage("ReSharper", "IdentifierTypo")]
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     [SuppressMessage("Style", "IDE1006:Naming Styles")]
-    internal readonly struct SpuReverbSettings
+    internal /*readonly*/ struct SpuReverbSettings
     {
         public SpuReverbSettings(SpuReverbPreset preset, int sampleRate)
         {
@@ -65,7 +65,7 @@ namespace Wipeout.Formats.Audio.Sony
 
             int GetOffset(short value)
             {
-                return value * 8 * sampleRate / 22050;
+                return (int)(value * 8 * sampleRate / 22050);
             }
 
             static float GetVolume(short value)
@@ -74,68 +74,68 @@ namespace Wipeout.Formats.Audio.Sony
             }
         }
 
-        public int dAPF1 { get; }
+        public int dAPF1;
 
-        public int dAPF2 { get; }
+        public int dAPF2;
 
-        public float vIIR { get; }
+        public float vIIR;
 
-        public float vCOMB1 { get; }
+        public float vCOMB1;
 
-        public float vCOMB2 { get; }
+        public float vCOMB2;
 
-        public float vCOMB3 { get; }
+        public float vCOMB3;
 
-        public float vCOMB4 { get; }
+        public float vCOMB4;
 
-        public float vWALL { get; }
+        public float vWALL;
 
-        public float vAPF1 { get; }
+        public float vAPF1;
 
-        public float vAPF2 { get; }
+        public float vAPF2;
 
-        public int mLSAME { get; }
+        public int mLSAME;
 
-        public int mRSAME { get; }
+        public int mRSAME;
 
-        public int mLCOMB1 { get; }
+        public int mLCOMB1;
 
-        public int mRCOMB1 { get; }
+        public int mRCOMB1;
 
-        public int mLCOMB2 { get; }
+        public int mLCOMB2;
 
-        public int mRCOMB2 { get; }
+        public int mRCOMB2;
 
-        public int dLSAME { get; }
+        public int dLSAME;
 
-        public int dRSAME { get; }
+        public int dRSAME;
 
-        public int mLDIFF { get; }
+        public int mLDIFF;
 
-        public int mRDIFF { get; }
+        public int mRDIFF;
 
-        public int mLCOMB3 { get; }
+        public int mLCOMB3;
 
-        public int mRCOMB3 { get; }
+        public int mRCOMB3;
 
-        public int mLCOMB4 { get; }
+        public int mLCOMB4;
 
-        public int mRCOMB4 { get; }
+        public int mRCOMB4;
 
-        public int dLDIFF { get; }
+        public int dLDIFF;
 
-        public int dRDIFF { get; }
+        public int dRDIFF;
 
-        public int mLAPF1 { get; }
+        public int mLAPF1;
 
-        public int mRAPF1 { get; }
+        public int mRAPF1;
 
-        public int mLAPF2 { get; }
+        public int mLAPF2;
 
-        public int mRAPF2 { get; }
+        public int mRAPF2;
 
-        public float vLIN { get; }
+        public float vLIN;
 
-        public float vRIN { get; }
+        public float vRIN;
     }
 }
