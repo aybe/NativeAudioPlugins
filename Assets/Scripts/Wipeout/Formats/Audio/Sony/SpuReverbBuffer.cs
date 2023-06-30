@@ -4,7 +4,13 @@ namespace Wipeout.Formats.Audio.Sony
 {
     internal sealed class SpuReverbBuffer<T>
     {
-        public SpuReverbBuffer(int length)
+        private readonly int Count;
+
+        private readonly T[] Items;
+
+        private int Index;
+
+        public SpuReverbBuffer(in int length)
         {
             if (length <= 0)
             {
@@ -12,27 +18,25 @@ namespace Wipeout.Formats.Audio.Sony
             }
 
             Items = new T[length];
+
+            Count = Items.Length;
         }
 
-        private int Index { get; set; }
-
-        private T[] Items { get; }
-
-        public ref T this[int index]
+        public ref T this[in int index]
         {
             get
             {
                 var n = Index + index;
-                var m = Items.Length;
+                var m = Count;
                 var i = (n % m + m) % m;
 
                 return ref Items[i];
             }
         }
 
-        public void Advance(int count = 2)
+        public void Advance(in int count = 2)
         {
-            Index = (Index + count) % Items.Length;
+            Index = (Index + count) % Count;
         }
     }
 }

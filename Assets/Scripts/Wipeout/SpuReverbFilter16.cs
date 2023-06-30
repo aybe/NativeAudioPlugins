@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using UnityEngine;
 using UnityEngine.Serialization;
 using Wipeout.Formats.Audio.Extensions;
@@ -5,51 +6,54 @@ using Wipeout.Formats.Audio.Sony;
 
 namespace Wipeout
 {
-    internal class SpuReverbFilter16 : MonoBehaviour
+    public class SpuReverbFilter16 : MonoBehaviour
     {
-        public enum bw
-        {
-            k441  = 441,
-            k882  = 882,
-            k1323 = 1323,
-            k1764 = 1764,
-            k2205 = 2205,
-            k4410 = 4410
-        }
+        [FormerlySerializedAs("Dry")]
+        [Range(0.0f, 1.0f)]
+        public float MixDry = 1.0f;
 
-        [Range(0.0f, 1.0f)] public float Dry = 1.0f;
+        [FormerlySerializedAs("Wet")]
+        [Range(0.0f, 1.0f)]
+        public float MixWet = 1.0f;
 
-        [Range(0.0f, 1.0f)]    public float Wet = 1.0f;
-        [Range(-10.0f, 10.0f)] public float Vol = 1.5f;
+        [FormerlySerializedAs("Vol")]
+        [Range(0.0f, 2.0f)]
+        public float OutVol = 1.5f;
 
-        [Range(1, 8)] public int Step = 2;
+        [Space]
+        [FormerlySerializedAs("ApplyFilter")]
+        public bool Filter = true;
 
-        public bool ApplyFilter = true;
+        [Range(441, 21609)]
+        public float LowPass = 11025;
 
-        [Space] [Range(441, 21609)] public float LowPass = 11025;
+        [FormerlySerializedAs("TransitionBandwidth")]
+        public SpuReverbQuality Quality = SpuReverbQuality.Highest;
 
-        public bw TransitionBandwidth = bw.k441;
-
-        public FilterWindow FilterWindow = FilterWindow.Blackman;
-
-        private SpuReverbFilter16Backup Backup;
+        [FormerlySerializedAs("FilterWindow")]
+        public FilterWindow Window = FilterWindow.Blackman;
 
         private Filter[] Filters;
 
-        private void Update()
-        {
-            Backup.Step = Step;
-        }
+        private SpuReverbFilter16Backup Reverb;
 
         private void OnEnable()
         {
+            if (AudioSettings.outputSampleRate != 44100 || AudioSettings.speakerMode != AudioSpeakerMode.Stereo)
+            {
+                Debug.LogWarning("PSX reverb requires a sample rate of 44100Hz and stereo speakers, disabling.");
+                enabled = false;
+            }
+
             OnValidate();
 
-            Backup = new SpuReverbFilter16Backup { Reverb = SpuReverbPreset.Hall };
+            Reverb = new SpuReverbFilter16Backup(SpuReverbPreset.Hall); // this is the EXACT preset they've used
         }
 
         private void OnAudioFilterRead(float[] data, int channels)
         {
+            // we always do the processing to avoid delay in chain
+
             var samples = data.Length / channels;
 
             for (var i = 0; i < samples; i++)
@@ -63,7 +67,7 @@ namespace Wipeout
                 var filterL = sourceL;
                 var filterR = sourceR;
 
-                if (ApplyFilter)
+                if (Filter)
                 {
                     filterL = (float)Filters[0].Process(filterL);
                     filterR = (float)Filters[1].Process(filterR);
@@ -72,19 +76,28 @@ namespace Wipeout
                 var l1 = (short)(filterL * 32767.0f);
                 var r1 = (short)(filterR * 32767.0f);
 
-                Backup.Process(l1, r1, out var l2, out var r2);
+                Reverb.Process(l1, r1, out var l2, out var r2);
 
-                var l3 = sourceL * 0.5f * Dry + l2 / 32767.0f * 0.5f * Wet;
-                var r3 = sourceR * 0.5f * Dry + r2 / 32767.0f * 0.5f * Wet;
+                var l3 = sourceL * 0.5f * MixDry + l2 / 32768.0f * 0.5f * MixWet;
+                var r3 = sourceR * 0.5f * MixDry + r2 / 32768.0f * 0.5f * MixWet;
 
-                data[offsetL] = l3*Vol;
-                data[offsetR] = r3*Vol;
+                data[offsetL] = l3 * OutVol;
+                data[offsetR] = r3 * OutVol;
             }
         }
 
         private void OnValidate()
         {
-            var coefficients = Filter.LowPass(44100, LowPass, (double)TransitionBandwidth, FilterWindow);
+            // initially, the PSX reverb only works at a sample rate of 22050Hz
+            // but it turns out that it's possible to get it working at 44100Hz
+            // problem #1: we must use that sample rate, fix: let OS do the SRC
+            // problem #2: high hiss, fix: process input with a solid LP filter 
+
+            // it is really close to the real thing and most users won't notice
+
+            // have it 100% exact is IMPOSSIBLE: there are other things at play
+
+            var coefficients = Formats.Audio.Extensions.Filter.LowPass(44100, LowPass, (double)Quality, Window); // TODO
 
             Filters = new[]
             {
@@ -92,7 +105,18 @@ namespace Wipeout
                 new Filter(coefficients)
             };
 
-            Debug.Log($"{LowPass}, {TransitionBandwidth}, {FilterWindow}, {coefficients.Length}");
+            Debug.Log($"{LowPass}, {Quality}, {Window}, {coefficients.Length}");
         }
+    }
+
+    [SuppressMessage("ReSharper", "UnusedMember.Global")]
+    public enum SpuReverbQuality
+    {
+        Highest = 441,
+        High    = 882,
+        k1323   = 1323,
+        k1764   = 1764,
+        k2205   = 2205,
+        k4410   = 4410
     }
 }

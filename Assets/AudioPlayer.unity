@@ -228,9 +228,7 @@ GameObject:
   - component: {fileID: 483587884}
   - component: {fileID: 483587883}
   - component: {fileID: 483587882}
-  - component: {fileID: 483587885}
   - component: {fileID: 483587886}
-  - component: {fileID: 483587887}
   m_Layer: 0
   m_Name: GameObject
   m_TagString: Untagged
@@ -364,18 +362,6 @@ Transform:
   m_Father: {fileID: 0}
   m_RootOrder: 2
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &483587885
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 483587881}
-  m_Enabled: 0
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 10ea2b88612996a4a846ec15e569542b, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!114 &483587886
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -388,37 +374,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a45e1bafc812bc34392f51530915a95e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Dry: 1
-  Wet: 1
-  Vol: 1.5
-  Step: 2
-  ApplyFilter: 1
+  MixDry: 1
+  MixWet: 1
+  OutVol: 1.5
+  Filter: 1
   LowPass: 11025
-  TransitionBandwidth: 441
-  FilterWindow: 0
---- !u!164 &483587887
-AudioReverbFilter:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 483587881}
-  m_Enabled: 0
-  m_DryLevel: 0
-  m_Room: 0
-  m_RoomHF: 0
-  m_DecayTime: 1
-  m_DecayHFRatio: 0.5
-  m_ReflectionsLevel: -10000
-  m_ReverbLevel: 0
-  m_ReverbDelay: 0.04
-  m_Diffusion: 100
-  m_Density: 100
-  m_HFReference: 5000
-  m_RoomLF: 0
-  m_LFReference: 250
-  m_ReflectionsDelay: 0
-  m_ReverbPreset: 27
+  Quality: 441
+  Window: 0
 --- !u!1 &932456949
 GameObject:
   m_ObjectHideFlags: 0

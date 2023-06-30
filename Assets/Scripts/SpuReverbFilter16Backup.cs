@@ -1,128 +1,152 @@
-﻿using System;
-using System.Diagnostics.CodeAnalysis;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
+using JetBrains.Annotations;
 using Wipeout.Formats.Audio.Sony;
-
-// ReSharper disable RedundantIfElseBlock
 
 [SuppressMessage("ReSharper", "InconsistentNaming")]
 [SuppressMessage("ReSharper", "IdentifierTypo")]
+[NoReorder]
 public sealed class SpuReverbFilter16Backup
 {
-    public int Step
-        ;
-    private SpuReverbBuffer<int> Buffer { get; } = new(131072 * 4);
+    public SpuReverbFilter16Backup(SpuReverbPreset reverb)
+    {
+        // note that this works "by accident" for 44100Hz
+        // any other sample rate needs an adjusted preset
+        // unless you're an expert in reverb, just forget
 
-    public SpuReverbPreset Reverb { get; init; }
+        const int step = 8 * 2 /* 44100Hz */;
+
+        dAPF1   = step * reverb.dAPF1;
+        dAPF2   = step * reverb.dAPF2;
+        vIIR    = reverb.vIIR;
+        vCOMB1  = reverb.vCOMB1;
+        vCOMB2  = reverb.vCOMB2;
+        vCOMB3  = reverb.vCOMB3;
+        vCOMB4  = reverb.vCOMB4;
+        vWALL   = reverb.vWALL;
+        vAPF1   = reverb.vAPF1;
+        vAPF2   = reverb.vAPF2;
+        mLSAME  = step * reverb.mLSAME;
+        mRSAME  = step * reverb.mRSAME;
+        mLCOMB1 = step * reverb.mLCOMB1;
+        mRCOMB1 = step * reverb.mRCOMB1;
+        mLCOMB2 = step * reverb.mLCOMB2;
+        mRCOMB2 = step * reverb.mRCOMB2;
+        dLSAME  = step * reverb.dLSAME;
+        dRSAME  = step * reverb.dRSAME;
+        mLDIFF  = step * reverb.mLDIFF;
+        mRDIFF  = step * reverb.mRDIFF;
+        mLCOMB3 = step * reverb.mLCOMB3;
+        mRCOMB3 = step * reverb.mRCOMB3;
+        mLCOMB4 = step * reverb.mLCOMB4;
+        mRCOMB4 = step * reverb.mRCOMB4;
+        dLDIFF  = step * reverb.dLDIFF;
+        dRDIFF  = step * reverb.dRDIFF;
+        mLAPF1  = step * reverb.mLAPF1;
+        mRAPF1  = step * reverb.mRAPF1;
+        mLAPF2  = step * reverb.mLAPF2;
+        mRAPF2  = step * reverb.mRAPF2;
+        vLIN    = reverb.vLIN;
+        vRIN    = reverb.vRIN;
+    }
+
+    private readonly int   dAPF1;
+    private readonly int   dAPF2;
+    private readonly short vIIR;
+    private readonly short vCOMB1;
+    private readonly short vCOMB2;
+    private readonly short vCOMB3;
+    private readonly short vCOMB4;
+    private readonly short vWALL;
+    private readonly short vAPF1;
+    private readonly short vAPF2;
+    private readonly int   mLSAME;
+    private readonly int   mRSAME;
+    private readonly int   mLCOMB1;
+    private readonly int   mRCOMB1;
+    private readonly int   mLCOMB2;
+    private readonly int   mRCOMB2;
+    private readonly int   dLSAME;
+    private readonly int   dRSAME;
+    private readonly int   mLDIFF;
+    private readonly int   mRDIFF;
+    private readonly int   mLCOMB3;
+    private readonly int   mRCOMB3;
+    private readonly int   mLCOMB4;
+    private readonly int   mRCOMB4;
+    private readonly int   dLDIFF;
+    private readonly int   dRDIFF;
+    private readonly int   mLAPF1;
+    private readonly int   mRAPF1;
+    private readonly int   mLAPF2;
+    private readonly int   mRAPF2;
+    private readonly short vLIN;
+    private readonly short vRIN;
+    private const    short vLOUT = short.MaxValue;
+    private const    short vROUT = short.MaxValue;
+
+    private readonly SpuReverbBuffer<int> Buffer = new(524288);
 
     [SuppressMessage("ReSharper", "ConvertToCompoundAssignment")]
-    [SuppressMessage("Style", "IDE0054:Use compound assignment", Justification = "<Pending>")]
+    [SuppressMessage("Style", "IDE0054:Use compound assignment")]
     public void Process(in short sourceL, in short sourceR, out short targetL, out short targetR)
     {
-        var dAPF1   = 8 * Step * Reverb.dAPF1;
-        var dAPF2   = 8 * Step * Reverb.dAPF2;
-        var vIIR    = Reverb.vIIR;
-        var vCOMB1  = Reverb.vCOMB1;
-        var vCOMB2  = Reverb.vCOMB2;
-        var vCOMB3  = Reverb.vCOMB3;
-        var vCOMB4  = Reverb.vCOMB4;
-        var vWALL   = Reverb.vWALL;
-        var vAPF1   = Reverb.vAPF1;
-        var vAPF2   = Reverb.vAPF2;
-        var mLSAME  = 8 * Step * Reverb.mLSAME;
-        var mRSAME  = 8 * Step * Reverb.mRSAME;
-        var mLCOMB1 = 8 * Step * Reverb.mLCOMB1;
-        var mRCOMB1 = 8 * Step * Reverb.mRCOMB1;
-        var mLCOMB2 = 8 * Step * Reverb.mLCOMB2;
-        var mRCOMB2 = 8 * Step * Reverb.mRCOMB2;
-        var dLSAME  = 8 * Step * Reverb.dLSAME;
-        var dRSAME  = 8 * Step * Reverb.dRSAME;
-        var mLDIFF  = 8 * Step * Reverb.mLDIFF;
-        var mRDIFF  = 8 * Step * Reverb.mRDIFF;
-        var mLCOMB3 = 8 * Step * Reverb.mLCOMB3;
-        var mRCOMB3 = 8 * Step * Reverb.mRCOMB3;
-        var mLCOMB4 = 8 * Step * Reverb.mLCOMB4;
-        var mRCOMB4 = 8 * Step * Reverb.mRCOMB4;
-        var dLDIFF  = 8 * Step * Reverb.dLDIFF;
-        var dRDIFF  = 8 * Step * Reverb.dRDIFF;
-        var mLAPF1  = 8 * Step * Reverb.mLAPF1;
-        var mRAPF1  = 8 * Step * Reverb.mRAPF1;
-        var mLAPF2  = 8 * Step * Reverb.mLAPF2;
-        var mRAPF2  = 8 * Step * Reverb.mRAPF2;
-        var vLIN    = Reverb.vLIN;
-        var vRIN    = Reverb.vRIN;
-        
-        var inL = sourceL;
-        var inR = sourceR;
+        const int div = 0x8000;
 
-        var Lin = vLIN * inL / 0x8000;
-        var Rin = vRIN * inR / 0x8000;
+        var LIn = vLIN * sourceL / div;
+        var RIn = vRIN * sourceR / div;
 
-        var l1 = Buffer[mLSAME - 1];
-        var r1 = Buffer[mRSAME - 1];
+        var L1 = Buffer[mLSAME - 1];
+        var R1 = Buffer[mRSAME - 1];
 
-        Buffer[mLSAME] = Clamp((Lin + Buffer[dLSAME] * vWALL / 0x8000 - l1) * vIIR / 0x8000 + l1);
-        Buffer[mRSAME] = Clamp((Rin + Buffer[dRSAME] * vWALL / 0x8000 - r1) * vIIR / 0x8000 + r1);
+        Buffer[mLSAME] = Clamp((LIn + Buffer[dLSAME] * vWALL / div - L1) * vIIR / div + L1);
+        Buffer[mRSAME] = Clamp((RIn + Buffer[dRSAME] * vWALL / div - R1) * vIIR / div + R1);
 
-        var l2 = Buffer[mLDIFF - 1];
-        var r2 = Buffer[mRDIFF - 1];
+        var L2 = Buffer[mLDIFF - 1];
+        var R2 = Buffer[mRDIFF - 1];
 
-        Buffer[mLDIFF] = Clamp((Lin + Buffer[dRDIFF] * vWALL / 0x8000 - l2) * vIIR / 0x8000 + l2);
-        Buffer[mRDIFF] = Clamp((Rin + Buffer[dLDIFF] * vWALL / 0x8000 - r2) * vIIR / 0x8000 + r2);
+        Buffer[mLDIFF] = Clamp((LIn + Buffer[dRDIFF] * vWALL / div - L2) * vIIR / div + L2);
+        Buffer[mRDIFF] = Clamp((RIn + Buffer[dLDIFF] * vWALL / div - R2) * vIIR / div + R2);
 
-        var Lout =
-            vCOMB1 * Buffer[mLCOMB1] / 0x8000 +
-            vCOMB2 * Buffer[mLCOMB2] / 0x8000 +
-            vCOMB3 * Buffer[mLCOMB3] / 0x8000 +
-            vCOMB4 * Buffer[mLCOMB4] / 0x8000;
+        var LOut = vCOMB1 * Buffer[mLCOMB1] / div +
+                   vCOMB2 * Buffer[mLCOMB2] / div +
+                   vCOMB3 * Buffer[mLCOMB3] / div +
+                   vCOMB4 * Buffer[mLCOMB4] / div;
 
-        var Rout =
-            vCOMB1 * Buffer[mRCOMB1] / 0x8000 +
-            vCOMB2 * Buffer[mRCOMB2] / 0x8000 +
-            vCOMB3 * Buffer[mRCOMB3] / 0x8000 +
-            vCOMB4 * Buffer[mRCOMB4] / 0x8000;
+        var ROut = vCOMB1 * Buffer[mRCOMB1] / div +
+                   vCOMB2 * Buffer[mRCOMB2] / div +
+                   vCOMB3 * Buffer[mRCOMB3] / div +
+                   vCOMB4 * Buffer[mRCOMB4] / div;
 
-        Lout = Lout - vAPF1 * Buffer[mLAPF1 - dAPF1] / 0x8000;
-        Rout = Rout - vAPF1 * Buffer[mRAPF1 - dAPF1] / 0x8000;
+        LOut = LOut - vAPF1 * Buffer[mLAPF1 - dAPF1] / div;
+        ROut = ROut - vAPF1 * Buffer[mRAPF1 - dAPF1] / div;
 
-        Buffer[mLAPF1] = Clamp(Lout);
-        Buffer[mRAPF1] = Clamp(Rout);
+        Buffer[mLAPF1] = Clamp(LOut);
+        Buffer[mRAPF1] = Clamp(ROut);
 
-        Lout = Lout * vAPF1 / 0x8000 + Buffer[mLAPF1 - dAPF1];
-        Rout = Rout * vAPF1 / 0x8000 + Buffer[mRAPF1 - dAPF1];
+        LOut = LOut * vAPF1 / div + Buffer[mLAPF1 - dAPF1];
+        ROut = ROut * vAPF1 / div + Buffer[mRAPF1 - dAPF1];
 
-        Lout = Lout - vAPF2 * Buffer[mLAPF2 - dAPF2] / 0x8000;
-        Rout = Rout - vAPF2 * Buffer[mRAPF2 - dAPF2] / 0x8000;
+        LOut = LOut - vAPF2 * Buffer[mLAPF2 - dAPF2] / div;
+        ROut = ROut - vAPF2 * Buffer[mRAPF2 - dAPF2] / div;
 
-        Buffer[mLAPF2] = Clamp(Lout);
-        Buffer[mRAPF2] = Clamp(Rout);
+        Buffer[mLAPF2] = Clamp(LOut);
+        Buffer[mRAPF2] = Clamp(ROut);
 
-        Lout = Lout * vAPF2 / 0x8000 + Buffer[mLAPF2 - dAPF2];
-        Rout = Rout * vAPF2 / 0x8000 + Buffer[mRAPF2 - dAPF2];
+        LOut = LOut * vAPF2 / div + Buffer[mLAPF2 - dAPF2];
+        ROut = ROut * vAPF2 / div + Buffer[mRAPF2 - dAPF2];
 
-        const short vLOUT = short.MaxValue;
-        const short vROUT = short.MaxValue;
-
-        const bool mix = false;
-
-        if (mix)
-        {
-            targetL = Clamp(Lin * vLIN / 0x8000 + Lout * vLOUT / 0x8000);
-            targetR = Clamp(Rin * vRIN / 0x8000 + Rout * vROUT / 0x8000);
-        }
-        else
-        {
-            targetL = Clamp(Lout * vLOUT / 0x8000);
-            targetR = Clamp(Rout * vROUT / 0x8000);
-        }
+        targetL = Clamp(LOut * vLOUT / div);
+        targetR = Clamp(ROut * vROUT / div);
 
         Buffer.Advance();
     }
 
-    private static short Clamp(int value)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static short Clamp(in int value)
     {
-        var clamp1 = Math.Clamp(value, short.MinValue, short.MaxValue);
-        var clamp2 = (short)clamp1;
-
-        return clamp2;
+        const short minValue = short.MinValue;
+        const short maxValue = short.MaxValue;
+        return value < minValue ? minValue : value > maxValue ? maxValue : (short)value;
     }
 }

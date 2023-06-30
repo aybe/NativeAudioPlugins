@@ -48,11 +48,14 @@ namespace Wipeout.Formats.Audio.Extensions
             return value;
         }
 
-        public static float ToLinearVolume(in float decibels)
+        public static double DecibelToLinear(double db)
         {
-            var factor = MathF.Pow(10.0f, decibels / 20.0f);
+            return Math.Pow(10.0, db / 20.0);
+        }
 
-            return factor;
+        public static double LinearToDecibel(double linear)
+        {
+            return 20.0 * Math.Log10(linear);
         }
     }
 }

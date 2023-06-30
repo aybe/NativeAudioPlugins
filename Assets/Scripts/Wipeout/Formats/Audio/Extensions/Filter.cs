@@ -23,11 +23,11 @@ namespace Wipeout.Formats.Audio.Extensions
             Position     = 0;
         }
 
-        private double[] Coefficients { get; }
+        private readonly double[] Coefficients;
 
-        private double[] DelayLine { get; }
+        private readonly double[] DelayLine;
 
-        private int Position { get; set; }
+        private int Position;
 
         public void Clear()
         {
@@ -38,7 +38,9 @@ namespace Wipeout.Formats.Audio.Extensions
 
         public double Process(double sample)
         {
-            DelayLine[Position] = sample;
+            var delays = DelayLine;
+
+            delays[Position] = sample;
 
             var result = 0.0d;
             var offset = Position;
@@ -48,7 +50,7 @@ namespace Wipeout.Formats.Audio.Extensions
             for (var i = 0; i < length; i++)
             {
                 var input = source[i];
-                var delay = DelayLine[offset];
+                var delay = delays[offset];
                 var value = input * delay;
 
                 result = result + value;
