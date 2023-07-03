@@ -1,0 +1,86 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<ClassDiagram MajorVersion="1" MinorVersion="1" MembersFormat="NameAndType">
+  <Class Name="Wipeout.Reverb.NativeBox&lt;T&gt;" BaseTypeListCollapsed="true">
+    <Position X="0.5" Y="3" Width="2.75" />
+    <TypeIdentifier>
+      <HashCode>AAAAAAAGBCAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAA=</HashCode>
+      <FileName>Assets\Scripts\Wipeout\Reverb\NativeBox.cs</FileName>
+    </TypeIdentifier>
+    <Lollipop Position="0.2" />
+  </Class>
+  <Class Name="Wipeout.Reverb.SineGenerator">
+    <Position X="4.75" Y="5.75" Width="2.5" />
+    <Compartments>
+      <Compartment Name="Nested Types" Collapsed="false" />
+    </Compartments>
+    <TypeIdentifier>
+      <HashCode>AAAAAAAAAAAAAAAAIAAAAACEAAACAACCAAACAAAAAEA=</HashCode>
+      <FileName>Assets\Scripts\Wipeout\Reverb\SineGenerator.cs</FileName>
+    </TypeIdentifier>
+    <ShowAsAssociation>
+      <Field Name="_burstSine" />
+    </ShowAsAssociation>
+  </Class>
+  <Class Name="Wipeout.Reverb.SynthOut">
+    <Position X="4.75" Y="0.75" Width="2.5" />
+    <TypeIdentifier>
+      <HashCode>QAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=</HashCode>
+      <FileName>Assets\Scripts\Wipeout\Reverb\SynthOut.cs</FileName>
+    </TypeIdentifier>
+    <ShowAsAssociation>
+      <Field Name="provider" />
+    </ShowAsAssociation>
+  </Class>
+  <Class Name="Wipeout.Reverb.SynthProvider">
+    <Position X="4.75" Y="3.5" Width="2.5" />
+    <TypeIdentifier>
+      <HashCode>AAAAAAAgAAAIIAAAAAAAAAAAAAACAAAAAAAAAAAAAAA=</HashCode>
+      <FileName>Assets\Scripts\Wipeout\Reverb\SynthProvider.cs</FileName>
+    </TypeIdentifier>
+    <ShowAsAssociation>
+      <Field Name="_buffer" />
+    </ShowAsAssociation>
+  </Class>
+  <Class Name="Wipeout.Reverb.TempSpuReverbBurstFilter" Collapsed="true" BaseTypeListCollapsed="true">
+    <Position X="10.75" Y="0.75" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAAAAAACADAAAAAgAgAAAABAAEAAAEAAAAAAAAAAAAA=</HashCode>
+      <FileName>Assets\Scripts\Wipeout\Reverb\TempSpuReverbBurstFilter.cs</FileName>
+    </TypeIdentifier>
+    <Lollipop Position="0.2" />
+  </Class>
+  <Struct Name="Wipeout.Reverb.BufferHandler&lt;T&gt;" BaseTypeListCollapsed="true">
+    <Position X="15.25" Y="5.75" Width="2.75" />
+    <TypeIdentifier>
+      <HashCode>AAAAAAIEACAAAAAACAAAAABAAAAAAAAAAAAAABAAIAA=</HashCode>
+      <FileName>Assets\Scripts\Wipeout\Reverb\BufferHandler.cs</FileName>
+    </TypeIdentifier>
+    <Lollipop Position="0.2" />
+  </Struct>
+  <Struct Name="Wipeout.Reverb.SynthBuffer" BaseTypeListCollapsed="true">
+    <Position X="10.75" Y="4.25" Width="2.75" />
+    <TypeIdentifier>
+      <HashCode>AABAAAAkAAAAgAAACAAAAABAAAAAAAAAAAgAAAAAMAA=</HashCode>
+      <FileName>Assets\Scripts\Wipeout\Reverb\SynthBuffer.cs</FileName>
+    </TypeIdentifier>
+    <ShowAsAssociation>
+      <Field Name="_buffer" />
+    </ShowAsAssociation>
+    <Lollipop Position="0.2" />
+  </Struct>
+  <Interface Name="Wipeout.Reverb.INativeObject" Collapsed="true">
+    <Position X="10.75" Y="2" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAA=</HashCode>
+      <FileName>Assets\Scripts\Wipeout\Reverb\INativeObject.cs</FileName>
+    </TypeIdentifier>
+  </Interface>
+  <Delegate Name="Wipeout.Reverb.BurstSineDelegate">
+    <Position X="8.5" Y="6.25" Width="1.75" />
+    <TypeIdentifier>
+      <HashCode>AAAAAAABAAAAAAADAAAAAAAAAEAAAAgAAAAAAAAAAAA=</HashCode>
+      <FileName>Assets\Scripts\Wipeout\Reverb\BurstSineDelegate.cs</FileName>
+    </TypeIdentifier>
+  </Delegate>
+  <Font Name="Segoe UI" Size="9" />
+</ClassDiagram>

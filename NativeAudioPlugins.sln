@@ -3,6 +3,8 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Assembly-CSharp", "Assembly-CSharp.csproj", "{D954C4D5-FB5D-4D76-C6C4-9FA91036967D}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Wipeout.Reverb", "Wipeout.Reverb.csproj", "{590DAC7E-B413-6110-B87D-E8E73A226ED9}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -13,6 +15,10 @@ Global
 		{D954C4D5-FB5D-4D76-C6C4-9FA91036967D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{D954C4D5-FB5D-4D76-C6C4-9FA91036967D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{D954C4D5-FB5D-4D76-C6C4-9FA91036967D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{590DAC7E-B413-6110-B87D-E8E73A226ED9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{590DAC7E-B413-6110-B87D-E8E73A226ED9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{590DAC7E-B413-6110-B87D-E8E73A226ED9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{590DAC7E-B413-6110-B87D-E8E73A226ED9}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
