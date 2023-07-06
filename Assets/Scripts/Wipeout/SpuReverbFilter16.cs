@@ -1,4 +1,6 @@
+using System;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 using Unity.Burst;
 using UnityEngine;
 using UnityEngine.Serialization;
@@ -31,6 +33,9 @@ namespace Wipeout
 
         public FilterWindow Window = FilterWindow.Blackman;
 
+        [SerializeField]
+        private FilterState[] States;
+
         private Filter[] Filters;
 
         private SpuReverbFilter16Backup Reverb;
@@ -48,9 +53,11 @@ namespace Wipeout
             Reverb = new SpuReverbFilter16Backup(SpuReverbPreset.Hall); // this is the EXACT preset they've used
         }
 
-        [SuppressMessage("ReSharper", "IdentifierTypo")]
         private void OnAudioFilterRead(float[] data, int channels)
         {
+            NewMethod(data, channels);
+
+            return;
             ProcessAudio(data, channels);
         }
 
@@ -79,6 +86,70 @@ namespace Wipeout
             };
 
             Debug.Log($"{LowPass}, {Quality}, {Window}, {coefficients.Length}");
+
+            States = new[]
+            {
+                new FilterState(Array.ConvertAll(coefficients, Convert.ToSingle)),
+                new FilterState(Array.ConvertAll(coefficients, Convert.ToSingle))
+            };
+        }
+
+        private void NewMethod(float[] data, int channels)
+        {if (ApplyReverb)
+            {
+                
+            }
+            else
+            {
+                return;
+            }
+            var sampleCount = data.Length / channels;
+            var sampleIndex = 0;
+             for (var j = 0; j < sampleCount; j++)
+               for (var i = 0; i < channels; i++)
+            {
+                var f = States[i];
+                var z = f.Delay;
+                var n = z.Length;
+                var h = f.Coefficients;
+                {
+                    ref var sample = ref data[sampleIndex];
+
+                    sample = fir_double_h(sample, n, h, z, ref f.Index);
+                    sampleIndex++;
+                }
+            }
+        }
+
+        [SuppressMessage("ReSharper", "InconsistentNaming")]
+        [SuppressMessage("ReSharper", "IdentifierTypo")]
+        private float fir_double_h(float input, int ntaps, float[] h, float[] z, ref int p_state)
+            /****************************************************************************
+            * fir_double_h: This uses doubled coefficients (supplied by caller) so that 
+            * the filter calculation always operates on a flat buffer.
+            *****************************************************************************/
+        {
+            var state = p_state;
+
+            /* store input at the beginning of the delay line */
+            z[state] = input;
+
+            /* calculate the filter */
+            var accum = 0.0f;
+            for (var i = 0; i < ntaps; i++)
+            {
+                accum += h[ntaps - state + i] * z[i];
+            }
+
+            /* decrement state, wrapping if below zero */
+            if (--state < 0)
+            {
+                state += ntaps;
+            }
+
+            p_state = state; /* return new state to caller */
+
+            return accum;
         }
 
         private void ProcessAudio(float[] data, int channels)
@@ -120,6 +191,21 @@ namespace Wipeout
 
                 data[offsetL] = l3 * OutVol;
                 data[offsetR] = r3 * OutVol;
+            }
+        }
+
+        [Serializable]
+        private sealed class FilterState
+        {
+            public float[] Coefficients;
+            public float[] Delay;
+            public int     Index;
+
+            public FilterState(float[] coefficients)
+            {
+                Coefficients = coefficients.Concat(coefficients).ToArray();
+                Delay        = new float[coefficients.Length];
+                Index        = 0;
             }
         }
     }
