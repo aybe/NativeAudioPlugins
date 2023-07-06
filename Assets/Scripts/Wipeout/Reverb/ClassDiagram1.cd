@@ -68,15 +68,15 @@
     </ShowAsAssociation>
     <Lollipop Position="0.2" />
   </Struct>
-  <Interface Name="Wipeout.Reverb.INativeObject" Collapsed="true">
-    <Position X="10.75" Y="2" Width="1.5" />
+  <Interface Name="Wipeout.Reverb.INativeObject">
+    <Position X="10.75" Y="2" Width="2" />
     <TypeIdentifier>
       <HashCode>AAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAA=</HashCode>
       <FileName>Assets\Scripts\Wipeout\Reverb\INativeObject.cs</FileName>
     </TypeIdentifier>
   </Interface>
   <Delegate Name="Wipeout.Reverb.BurstSineDelegate">
-    <Position X="8.5" Y="6.25" Width="1.75" />
+    <Position X="8.5" Y="5.75" Width="1.75" />
     <TypeIdentifier>
       <HashCode>AAAAAAABAAAAAAADAAAAAAAAAEAAAAgAAAAAAAAAAAA=</HashCode>
       <FileName>Assets\Scripts\Wipeout\Reverb\BurstSineDelegate.cs</FileName>

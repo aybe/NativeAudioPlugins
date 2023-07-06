@@ -44,7 +44,7 @@ namespace Wipeout.Reverb
             for (var sample = 0; sample < buffer.Length; sample += buffer.Channels)
             {
                 // get value of phase on a sine wave
-                var value = (float)(math.sin(phase * 2 * math.PI) * amplitude);
+                var value = math.sin(phase * 2 * math.PI) * amplitude;
 
                 // increment _phase value for next iteration
                 phase = (phase + phaseIncrement) % 1;
@@ -52,7 +52,7 @@ namespace Wipeout.Reverb
                 // populate all channels with the values
                 for (var channel = 0; channel < buffer.Channels; channel++)
                 {
-                    buffer[sample + channel] = value;
+                    buffer[sample + channel] = (float)value;
                 }
             }
 

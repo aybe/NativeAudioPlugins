@@ -55,6 +55,11 @@ namespace Wipeout.Reverb
             UnsafeUtility.MemCpy((void*)gcHandle.AddrOfPinnedObject(), Pointer, length * sizeof(T));
 
             gcHandle.Free();
+
+            fixed (T* pt = managedArray)
+            {
+                // UnsafeUtility.MemCpy(Pointer, pt, length * sizeof(T)); // todo
+            }
         }
 
         public void CopyTo(BufferHandler<T> buffer)
