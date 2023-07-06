@@ -1,3 +1,4 @@
+#pragma warning disable IDE1006 // Naming Styles
 using System;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
@@ -71,6 +72,7 @@ namespace Wipeout
             {
                 SpuReverbType.Old => ProcessAudio,
                 SpuReverbType.New => NewMethod,
+                SpuReverbType.New2 => NewMethod2,
                 _ => throw new ArgumentOutOfRangeException()
             };
         }
@@ -116,10 +118,38 @@ namespace Wipeout
                     var z = f.Delay;
                     var n = z.Length;
                     var h = f.Input;
+
+                    ref var sample = ref data[sampleIndex];
+
+                    sample = fir_double_h(sample, n, h, z, ref f.Index);
+
+                    sampleIndex++;
+                }
+            }
+        }
+
+        private unsafe void NewMethod2(float[] data, int channels)
+        {
+            var sampleCount = data.Length / channels;
+            var sampleIndex = 0;
+
+            for (var j = 0; j < sampleCount; j++)
+            {
+                for (var i = 0; i < channels; i++)
+                {
+                    var f = States[i];
+                    var z = f.Delay;
+                    var n = z.Length;
+                    var h = f.Input;
+
+                    fixed (float* ph = h)
+                    fixed (float* pz = z)
+                    fixed (int* pi = &f.Index)
                     {
                         ref var sample = ref data[sampleIndex];
 
-                        sample = fir_double_h(sample, n, h, z, ref f.Index);
+                        sample = fir_double_h(sample, n, ph, pz, pi);
+
                         sampleIndex++;
                     }
                 }
@@ -128,7 +158,7 @@ namespace Wipeout
 
         [SuppressMessage("ReSharper", "InconsistentNaming")]
         [SuppressMessage("ReSharper", "IdentifierTypo")]
-        private float fir_double_h(float input, int ntaps, float[] h, float[] z, ref int p_state)
+        private static float fir_double_h(float input, int ntaps, float[] h, float[] z, ref int p_state)
             /****************************************************************************
             * fir_double_h: This uses doubled coefficients (supplied by caller) so that 
             * the filter calculation always operates on a flat buffer.
@@ -153,6 +183,38 @@ namespace Wipeout
             }
 
             p_state = state; /* return new state to caller */
+
+            return accum;
+        }
+
+        [BurstCompile(CompileSynchronously = true)]
+        [SuppressMessage("ReSharper", "InconsistentNaming")]
+        [SuppressMessage("ReSharper", "IdentifierTypo")]
+        private static unsafe float fir_double_h(float input, int ntaps, float* h, float* z, int* p_state)
+        /****************************************************************************
+        * fir_double_h: This uses doubled coefficients (supplied by caller) so that 
+        * the filter calculation always operates on a flat buffer.
+        *****************************************************************************/
+        {
+            var state = *p_state;
+
+            /* store input at the beginning of the delay line */
+            z[state] = input;
+
+            /* calculate the filter */
+            var accum = 0.0f;
+            for (var i = 0; i < ntaps; i++)
+            {
+                accum += h[ntaps - state + i] * z[i];
+            }
+
+            /* decrement state, wrapping if below zero */
+            if (--state < 0)
+            {
+                state += ntaps;
+            }
+
+            *p_state = state; /* return new state to caller */
 
             return accum;
         }
@@ -220,6 +282,7 @@ namespace Wipeout
     internal enum SpuReverbType
     {
         Old,
-        New
+        New,
+        New2
     }
 }
