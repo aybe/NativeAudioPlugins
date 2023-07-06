@@ -1,4 +1,3 @@
-using System;
 using System.Diagnostics.CodeAnalysis;
 using Unity.Burst;
 using UnityEngine;
@@ -13,6 +12,7 @@ namespace Wipeout
     {
         [FormerlySerializedAs("FilterEnabled")]
         public bool ApplyFilter = true;
+
         public bool ApplyReverb = true;
 
         [Range(441, 21609)]
@@ -30,7 +30,7 @@ namespace Wipeout
         public SpuReverbQuality Quality = SpuReverbQuality.Highest;
 
         public FilterWindow Window = FilterWindow.Blackman;
-        
+
         private Filter[] Filters;
 
         private SpuReverbFilter16Backup Reverb;
@@ -50,6 +50,38 @@ namespace Wipeout
 
         [SuppressMessage("ReSharper", "IdentifierTypo")]
         private void OnAudioFilterRead(float[] data, int channels)
+        {
+            ProcessAudio(data, channels);
+        }
+
+        private void OnValidate()
+        {
+            CreateFilters();
+        }
+
+        private void CreateFilters()
+        {
+            // initially, the PSX reverb only works at a sample rate of 22050Hz
+            // but it turns out that it's possible to get it working at 44100Hz
+            // problem #1: we must use that sample rate, fix: let OS do the SRC
+            // problem #2: high hiss, fix: process input with a solid LP filter 
+
+            // it is really close to the real thing and most users won't notice
+
+            // have it 100% exact is IMPOSSIBLE: there are other things at play
+
+            var coefficients = Filter.LowPass(44100, LowPass, (double)Quality, Window); // TODO
+
+            Filters = new[]
+            {
+                new Filter(coefficients),
+                new Filter(coefficients)
+            };
+
+            Debug.Log($"{LowPass}, {Quality}, {Window}, {coefficients.Length}");
+        }
+
+        private void ProcessAudio(float[] data, int channels)
         {
             // we always do the processing to avoid delay in chain
 
@@ -89,28 +121,6 @@ namespace Wipeout
                 data[offsetL] = l3 * OutVol;
                 data[offsetR] = r3 * OutVol;
             }
-        }
-
-        private void OnValidate()
-        {
-            // initially, the PSX reverb only works at a sample rate of 22050Hz
-            // but it turns out that it's possible to get it working at 44100Hz
-            // problem #1: we must use that sample rate, fix: let OS do the SRC
-            // problem #2: high hiss, fix: process input with a solid LP filter 
-
-            // it is really close to the real thing and most users won't notice
-
-            // have it 100% exact is IMPOSSIBLE: there are other things at play
-
-            var coefficients = Filter.LowPass(44100, LowPass, (double)Quality, Window); // TODO
-
-            Filters = new[]
-            {
-                new Filter(coefficients),
-                new Filter(coefficients)
-            };
-
-            Debug.Log($"{LowPass}, {Quality}, {Window}, {coefficients.Length}");
         }
     }
 }
