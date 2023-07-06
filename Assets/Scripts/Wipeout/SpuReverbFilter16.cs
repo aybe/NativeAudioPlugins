@@ -34,7 +34,7 @@ namespace Wipeout
         public FilterWindow Window = FilterWindow.Blackman;
 
         [SerializeField]
-        private FilterState[] States;
+        private SpuFilterState[] States;
 
         [SerializeField]
         private SpuReverbType ReverbType;
@@ -67,17 +67,12 @@ namespace Wipeout
         {
             CreateFilters();
 
-            switch (ReverbType)
+            ReverbHandler = ReverbType switch
             {
-                case SpuReverbType.Old:
-                    ReverbHandler = ProcessAudio;
-                    break;
-                case SpuReverbType.New:
-                    ReverbHandler = NewMethod;
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException();
-            }
+                SpuReverbType.Old => ProcessAudio,
+                SpuReverbType.New => NewMethod,
+                _ => throw new ArgumentOutOfRangeException()
+            };
         }
 
         private void CreateFilters()
@@ -91,7 +86,7 @@ namespace Wipeout
 
             // have it 100% exact is IMPOSSIBLE: there are other things at play
 
-            var coefficients = Filter.LowPass(44100, LowPass, (double)Quality, Window); // TODO
+            var coefficients = Filter.LowPass(44100, LowPass, (double)Quality, Window);
 
             Filters = new[]
             {
@@ -103,35 +98,30 @@ namespace Wipeout
 
             States = new[]
             {
-                new FilterState(Array.ConvertAll(coefficients, Convert.ToSingle)),
-                new FilterState(Array.ConvertAll(coefficients, Convert.ToSingle))
+                new SpuFilterState(Array.ConvertAll(coefficients, Convert.ToSingle)),
+                new SpuFilterState(Array.ConvertAll(coefficients, Convert.ToSingle))
             };
         }
 
         private void NewMethod(float[] data, int channels)
         {
-            if (ApplyFilter)
-            {
-            }
-            else
-            {
-                return;
-            }
-
             var sampleCount = data.Length / channels;
             var sampleIndex = 0;
-            for (var j = 0; j < sampleCount; j++)
-            for (var i = 0; i < channels; i++)
-            {
-                var f = States[i];
-                var z = f.Delay;
-                var n = z.Length;
-                var h = f.Coefficients;
-                {
-                    ref var sample = ref data[sampleIndex];
 
-                    sample = fir_double_h(sample, n, h, z, ref f.Index);
-                    sampleIndex++;
+            for (var j = 0; j < sampleCount; j++)
+            {
+                for (var i = 0; i < channels; i++)
+                {
+                    var f = States[i];
+                    var z = f.Delay;
+                    var n = z.Length;
+                    var h = f.Input;
+                    {
+                        ref var sample = ref data[sampleIndex];
+
+                        sample = fir_double_h(sample, n, h, z, ref f.Index);
+                        sampleIndex++;
+                    }
                 }
             }
         }
@@ -208,20 +198,20 @@ namespace Wipeout
                 data[offsetR] = r3 * OutVol;
             }
         }
+    }
 
-        [Serializable]
-        private sealed class FilterState
+    [Serializable]
+    internal sealed class SpuFilterState
+    {
+        public float[] Input;
+        public float[] Delay;
+        public int     Index;
+
+        public SpuFilterState(float[] input)
         {
-            public float[] Coefficients;
-            public float[] Delay;
-            public int     Index;
-
-            public FilterState(float[] coefficients)
-            {
-                Coefficients = coefficients.Concat(coefficients).ToArray();
-                Delay        = new float[coefficients.Length];
-                Index        = 0;
-            }
+            Input = input.Concat(input).ToArray();
+            Delay = new float[input.Length];
+            Index = 0;
         }
     }
 
