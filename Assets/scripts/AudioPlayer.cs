@@ -6,10 +6,10 @@ using UnityEngine.Serialization;
 
 public class AudioPlayer : MonoBehaviour
 {
-    [FormerlySerializedAs("AudioSource")] public AudioSource Source;
+    public AudioSource Source;
 
-    [FormerlySerializedAs("GUIScale")] [Min(1)]
-    public int Scale = 4;
+    [Min(1)]
+    public int Scale = 2;
 
     private void OnGUI()
     {

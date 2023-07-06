@@ -11,11 +11,6 @@ namespace Wipeout.Formats.Audio.Extensions
     /// </summary>
     public sealed class Filter
     {
-        public Filter(Filter filter)
-            : this(filter.Coefficients)
-        {
-        }
-
         public Filter(IReadOnlyCollection<double> coefficients)
         {
             Coefficients = coefficients.ToArray();
@@ -28,13 +23,6 @@ namespace Wipeout.Formats.Audio.Extensions
         private readonly double[] DelayLine;
 
         private int Position;
-
-        public void Clear()
-        {
-            Array.Clear(DelayLine, 0, DelayLine.Length);
-
-            Position = 0;
-        }
 
         public double Process(double sample)
         {

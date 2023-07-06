@@ -85,6 +85,7 @@
     <Compile Include="Assets\Scripts\FireSelector.cs" />
     <Compile Include="Assets\Scripts\Wipeout\SpuReverbFilter16Editor.cs" />
     <Compile Include="Assets\Scripts\ShowPlayPos.cs" />
+    <Compile Include="Assets\Scripts\Wipeout\SpuReverbQuality.cs" />
     <Compile Include="Assets\Scripts\Wipeout\Formats\Audio\Sony\SpuReverb.cs" />
     <Compile Include="Assets\Scripts\WeatherAnimator.cs" />
     <Compile Include="Assets\Scripts\FlyCam.cs" />
@@ -116,6 +117,7 @@
     <Compile Include="Assets\Scripts\Clicker.cs" />
     <Compile Include="Assets\Scripts\DemoSelector.cs" />
     <Compile Include="Assets\Scripts\Wipeout\Formats\Audio\Microsoft\WavChunkData.cs" />
+    <Compile Include="Assets\Scripts\Wipeout\FilterState2.cs" />
     <Compile Include="Assets\Scripts\NoiseSweep.cs" />
     <Compile Include="Assets\Scripts\Wipeout\Extensions\Disposable.cs" />
     <Compile Include="Assets\Scripts\FullscreenShader.cs" />
