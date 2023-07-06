@@ -36,9 +36,14 @@ namespace Wipeout
         [SerializeField]
         private FilterState[] States;
 
+        [SerializeField]
+        private SpuReverbType ReverbType;
+
         private Filter[] Filters;
 
         private SpuReverbFilter16Backup Reverb;
+
+        private SpuReverbHandler ReverbHandler;
 
         private void OnEnable()
         {
@@ -55,15 +60,24 @@ namespace Wipeout
 
         private void OnAudioFilterRead(float[] data, int channels)
         {
-            NewMethod(data, channels);
-
-            return;
-            ProcessAudio(data, channels);
+            ReverbHandler(data, channels);
         }
 
         private void OnValidate()
         {
             CreateFilters();
+
+            switch (ReverbType)
+            {
+                case SpuReverbType.Old:
+                    ReverbHandler = ProcessAudio;
+                    break;
+                case SpuReverbType.New:
+                    ReverbHandler = NewMethod;
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
         }
 
         private void CreateFilters()
@@ -95,18 +109,19 @@ namespace Wipeout
         }
 
         private void NewMethod(float[] data, int channels)
-        {if (ApplyReverb)
+        {
+            if (ApplyFilter)
             {
-                
             }
             else
             {
                 return;
             }
+
             var sampleCount = data.Length / channels;
             var sampleIndex = 0;
-             for (var j = 0; j < sampleCount; j++)
-               for (var i = 0; i < channels; i++)
+            for (var j = 0; j < sampleCount; j++)
+            for (var i = 0; i < channels; i++)
             {
                 var f = States[i];
                 var z = f.Delay;
@@ -208,5 +223,13 @@ namespace Wipeout
                 Index        = 0;
             }
         }
+    }
+
+    internal delegate void SpuReverbHandler(float[] data, int channels);
+
+    internal enum SpuReverbType
+    {
+        Old,
+        New
     }
 }
