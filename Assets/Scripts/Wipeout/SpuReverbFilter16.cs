@@ -1,7 +1,10 @@
 #pragma warning disable IDE1006 // Naming Styles
+#nullable enable
 using System;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using JetBrains.Annotations;
 using Unity.Burst;
 using UnityEngine;
 using UnityEngine.Serialization;
@@ -40,11 +43,14 @@ namespace Wipeout
         [SerializeField]
         private SpuReverbType ReverbType;
 
+        [SerializeField]
+        private FilterState[] FilterStates;
+
         private Filter[] Filters;
 
         private SpuReverbFilter16Backup Reverb;
 
-        private SpuReverbHandler ReverbHandler;
+        private SpuReverbHandler?  ReverbHandler;
 
         private void OnEnable()
         {
@@ -61,7 +67,7 @@ namespace Wipeout
 
         private void OnAudioFilterRead(float[] data, int channels)
         {
-            ReverbHandler(data, channels);
+            ReverbHandler?.Invoke(data, channels);
         }
 
         private void OnValidate()
@@ -70,9 +76,11 @@ namespace Wipeout
 
             ReverbHandler = ReverbType switch
             {
+                SpuReverbType.Off => null,
                 SpuReverbType.Old => ProcessAudio,
                 SpuReverbType.New => NewMethod,
                 SpuReverbType.New2 => NewMethod2,
+                SpuReverbType.New3 => NewMethod3,
                 _ => throw new ArgumentOutOfRangeException()
             };
         }
@@ -103,6 +111,10 @@ namespace Wipeout
                 new SpuFilterState(Array.ConvertAll(coefficients, Convert.ToSingle)),
                 new SpuFilterState(Array.ConvertAll(coefficients, Convert.ToSingle))
             };
+
+            var f64 = Filter.LowPass(44100, 11025, 441, FilterWindow.Blackman);
+            var f32 = Array.ConvertAll(f64, Convert.ToSingle);
+            FilterStates = new[] { new FilterState(f32), new FilterState(f32) };
         }
 
         private void NewMethod(float[] data, int channels)
@@ -191,10 +203,10 @@ namespace Wipeout
         [SuppressMessage("ReSharper", "InconsistentNaming")]
         [SuppressMessage("ReSharper", "IdentifierTypo")]
         private static unsafe float fir_double_h(float input, int ntaps, float* h, float* z, int* p_state)
-        /****************************************************************************
-        * fir_double_h: This uses doubled coefficients (supplied by caller) so that 
-        * the filter calculation always operates on a flat buffer.
-        *****************************************************************************/
+            /****************************************************************************
+            * fir_double_h: This uses doubled coefficients (supplied by caller) so that 
+            * the filter calculation always operates on a flat buffer.
+            *****************************************************************************/
         {
             var state = *p_state;
 
@@ -217,6 +229,97 @@ namespace Wipeout
             *p_state = state; /* return new state to caller */
 
             return accum;
+        }
+
+        [BurstCompile(CompileSynchronously = true)]
+        private static unsafe void DoFilter(ref FilterData fd)
+        {
+            var channels = fd.DataChannels;
+
+            var sampleCount = fd.DataLength / channels;
+
+            for (var i = 0; i < channels; i++)
+            {
+                var state = fd.FiltersPositions[i];
+                var z     = fd.FiltersDelay[i];
+                var h     = fd.FiltersCoefficients[i];
+                var taps  = fd.FiltersTaps[i];
+                var data  = &fd.Data[i];
+
+                for (var j = 0; j < sampleCount; j++)
+                {
+                    z[state] = *data;
+
+                    var result = 0.0f;
+
+                    for (var k = 0; k < taps; k++)
+                    {
+                        result += h[taps - state + k] * z[i];
+                    }
+
+                    if (--state < 0)
+                    {
+                        state += taps;
+                    }
+
+                    fd.FiltersTaps[i] = state;
+
+                    *data = result;
+
+                    data++;
+                }
+            }
+        }
+
+        private void NewMethod3(float[] data, int channels)
+        {
+            var length = data.Length / channels;
+
+            for (var i = 0; i < channels; i++)
+            {
+                var fs = FilterStates[i];
+
+                unsafe
+                {
+                    fixed (float* fi = &data[i])
+                    fixed (float* fc = fs.Input)
+                    fixed (float* fd = fs.Delay)
+                    {
+                        DoFiltering(fi, length, channels, fc, fd, fs.Count, ref fs.Index);
+                    }
+                }
+            }
+        }
+
+        [BurstCompile(OptimizeFor = OptimizeFor.Performance)]
+        private static unsafe void DoFiltering(
+            float* pcm, int len, int hop, float* h, float* z, int taps, ref int state)
+        {
+            for (var i = 0; i < len; i++)
+            {
+                ref var source = ref *pcm;
+
+                z[state] = source;
+
+                var ph = h + taps - state;
+                var pz = z;
+
+                var target = 0.0f;
+
+                for (var j = 0; j < taps; j++)
+                {
+                    target += *ph++ * *pz++;
+                }
+
+                if (--state < 0)
+                {
+                    state += taps;
+                }
+
+                source = target;
+
+                pcm += hop;
+            }
         }
 
         private void ProcessAudio(float[] data, int channels)
@@ -260,6 +363,48 @@ namespace Wipeout
                 data[offsetR] = r3 * OutVol;
             }
         }
+
+        [Serializable]
+        private sealed class FilterState
+        {
+            public float[] Input;
+
+            public float[] Delay;
+
+            public int Count;
+
+            public int Index;
+
+            public FilterState(IReadOnlyCollection<float> filter)
+            {
+                Input = filter.Concat(filter).ToArray();
+                Delay = new float[filter.Count];
+                Count = filter.Count;
+            }
+        }
+
+        [Serializable]
+        private unsafe struct FilterData : IDisposable
+        {
+            public int     DataLength;
+            public int     DataChannels;
+            public float*  Data;
+            public float** FiltersCoefficients;
+            public float** FiltersDelay;
+            public int*    FiltersPositions;
+            public int*    FiltersTaps;
+
+            public void Dispose()
+            {
+            }
+
+            public static void Create(float[] filter)
+            {
+                var h = filter.Concat(filter).ToArray();
+                var z = new float[h.Length];
+                var n = new int[h.Length];
+            }
+        }
     }
 
     [Serializable]
@@ -283,6 +428,8 @@ namespace Wipeout
     {
         Old,
         New,
-        New2
+        New2,
+        New3,
+        Off
     }
 }
