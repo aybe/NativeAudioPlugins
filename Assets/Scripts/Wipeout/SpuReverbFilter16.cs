@@ -44,7 +44,7 @@ namespace Wipeout
         private SpuReverbType ReverbType;
 
         [SerializeField]
-        private FilterState[] FilterStates;
+        private FilterStateOld[] FilterStates;
 
         private Filter[] Filters;
 
@@ -114,7 +114,7 @@ namespace Wipeout
 
             var f64 = Filter.LowPass(44100, 11025, 441, FilterWindow.Blackman);
             var f32 = Array.ConvertAll(f64, Convert.ToSingle);
-            FilterStates = new[] { new FilterState(f32), new FilterState(f32) };
+            FilterStates = new[] { new FilterStateOld(f32), new FilterStateOld(f32) };
         }
 
         private void NewMethod(float[] data, int channels)
@@ -365,7 +365,7 @@ namespace Wipeout
         }
 
         [Serializable]
-        private sealed class FilterState
+        private sealed class FilterStateOld
         {
             public float[] Input;
 
@@ -375,7 +375,7 @@ namespace Wipeout
 
             public int Index;
 
-            public FilterState(IReadOnlyCollection<float> filter)
+            public FilterStateOld(IReadOnlyCollection<float> filter)
             {
                 Input = filter.Concat(filter).ToArray();
                 Delay = new float[filter.Count];
