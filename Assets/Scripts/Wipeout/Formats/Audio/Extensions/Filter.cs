@@ -11,6 +11,7 @@ namespace Wipeout.Formats.Audio.Extensions
     ///     https://fiiir.com/
     /// </summary>
     [BurstCompile]
+    
     public sealed class Filter
     {
         public Filter(IReadOnlyCollection<double> coefficients)
@@ -107,6 +108,57 @@ namespace Wipeout.Formats.Audio.Extensions
             return filter;
         }
 
+        [BurstCompile(OptimizeFor = OptimizeFor.Performance)]
+        public static unsafe void Convolve2(
+            in float* pcm, in int pcmSamples, in int pcmChannels,
+            in float** phArray, in int* phCount,
+            in int** ptArray, in int* ptCount,
+            in float** pzArray, in int** pzState
+        )
+        {
+            for (var i = 0; i < pcmChannels; i++)
+            {
+                var sample = &pcm[i];
+
+                var hArray = phArray[i];
+                var hCount = phCount[i];
+                var tArray = ptArray[i];
+                var tCount = ptCount[i];
+                var zArray = pzArray[i];
+                var zState = pzState[i];
+
+                for (var j = 0; j < pcmSamples; j++)
+                {
+                    var index1 = *zState;
+                    var index2 = *zState + hCount;
+
+                    zArray[index1] = zArray[index2] = *sample;
+
+                    var filter = 0.0f;
+                    for (var pos = 0; pos < tCount; pos++)
+                    {
+                        var tap = tArray[pos];
+
+                        filter += hArray[tap] * zArray[index2 - tap];
+                    }
+                    //goto skip;
+
+                    index1++;
+
+                    if (index1 >= hCount)
+                    {
+                        index1 = 0;
+                    }
+                    skip:
+
+                    *zState = index1;
+                    *sample = filter;
+
+                    sample += pcmChannels;
+                }
+            }
+        }
+        
         public static int[] HalfBandTaps(int count)
         {
             var taps = Enumerable.Range(0, count).Where(i => i % 2 == 1 || i == count / 2).ToArray();

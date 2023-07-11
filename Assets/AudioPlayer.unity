@@ -3155,7 +3155,7 @@ MonoBehaviour:
     - 0
     - 0
     Index: 0
-  ReverbType: 5
+  ReverbType: 6
   FilterStates:
   - Input:
     - 2.071501e-34

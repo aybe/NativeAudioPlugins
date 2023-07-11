@@ -74,10 +74,14 @@ namespace Wipeout
                 new NativeFilter(FilterState.CreateHalfBand()),
                 new NativeFilter(FilterState.CreateHalfBand()),
             };
+
+            Filter2 = new NativeFilter2(FilterState.CreateHalfBand(), 2);
         }
 
         private void OnDisable()
         {
+            Filter2.Dispose();
+            
             foreach (var nativeFilter in NativeFilters)
             {
                 nativeFilter.Dispose();
@@ -101,6 +105,7 @@ namespace Wipeout
                 SpuReverbType.New2 => NewMethod2,
                 SpuReverbType.New3 => NewMethod3,
                 SpuReverbType.New4 => NewMethod4,
+                SpuReverbType.New5 => NewMethod5,
                 _ => throw new ArgumentOutOfRangeException()
             };
         }
@@ -336,6 +341,37 @@ namespace Wipeout
             }
         }
 
+        private float[] AudioBuffer = new float[1024 * 2];
+
+        private NativeFilter2 Filter2 = null!;
+
+        private unsafe void NewMethod5(float[] data, int channels)
+        {
+            if (AudioBuffer.Length < data.Length)
+            {
+                AudioBuffer = new float[data.Length * 2];
+                Debug.Log($"Resized buffer to {AudioBuffer.Length}");
+            }
+
+            fixed (float* src = data)
+            fixed (float* tgt = AudioBuffer)
+            {
+                UnsafeUtility.MemCpy(tgt, src, data.Length * sizeof(float));
+
+                var pcmSamples = data.Length / channels;
+                var f          = Filter2;
+                var phArray    = f.Coefficients;
+                var phCount    = f.CoefficientsLength;
+                var ptArray    = f.Taps;
+                var ptCount    = f.TapsLength;
+                var pzArray    = f.DelayLine;
+                var pzState    = f.DelayLinePosition;
+                Filter.Convolve2(tgt, pcmSamples, channels, phArray, phCount, ptArray, ptCount, pzArray, pzState);
+                
+                UnsafeUtility.MemCpy(src, tgt, data.Length * sizeof(float));
+            }
+        }
+
         [BurstCompile(OptimizeFor = OptimizeFor.Performance)]
         private static unsafe void DoFiltering(
             float* pcm, int len, int hop, float* h, float* z, int taps, ref int state)
@@ -476,7 +512,8 @@ namespace Wipeout
         New2,
         New3,
         Off,
-        New4
+        New4,
+        New5
     }
     
     [Serializable]
@@ -521,6 +558,108 @@ namespace Wipeout
                 Position     = 0,
                 Taps         = hb
             };
+        }
+    }
+
+    public unsafe class NativeFilter2 : IDisposable
+    {
+        private readonly int     ArraysCount;
+
+        public readonly float** Coefficients;
+        public readonly int*    CoefficientsLength;
+        public readonly float** DelayLine;
+        public readonly int**   DelayLinePosition;
+        public readonly int**   Taps;
+        public readonly int*    TapsLength;
+
+        public NativeFilter2(FilterState state, int count)
+        {
+            var coefficients       = state.Coefficients;
+            var coefficientsLength = Repeat(coefficients.Length, count);
+            var delayLine          = state.DelayLine;
+            var delayLinePosition  = new[] { 0 };
+            var taps               = state.Taps;
+            var tapsLength         = Repeat(taps.Length, count);
+
+            ArraysCount        = count;
+            Coefficients       = Alloc(coefficients, count);
+            CoefficientsLength = Alloc(coefficientsLength);
+            DelayLine          = Alloc(delayLine, count);
+            DelayLinePosition  = Alloc(delayLinePosition, count);
+            Taps               = Alloc(taps, count);
+            TapsLength         = Alloc(tapsLength);
+        }
+
+        private static T[] Repeat<T>(T value, int count)
+        {
+            return Enumerable.Repeat(value, count).ToArray();
+        }
+
+        private static T** Alloc<T>(T[] array, int count) where T : unmanaged
+        {
+            var ptrSizeOf = UnsafeUtility.SizeOf<IntPtr>();
+            var ptrSize   = count * ptrSizeOf;
+            var ptrAlign  = UnsafeUtility.AlignOf<IntPtr>();
+            var ptr       = UnsafeUtility.Malloc(ptrSize, ptrAlign, Allocator.Persistent);
+
+            var arrSizeOf = sizeof(T);
+            var arrSize   = array.Length * arrSizeOf;
+            var arrAlign  = UnsafeUtility.AlignOf<T>();
+            var arr       = (T**)ptr;
+
+            for (var i = 0; i < count; i++)
+            {
+                var arrPtr = UnsafeUtility.Malloc(arrSize, arrAlign, Allocator.Persistent);
+                var arrSpn = new Span<T>(arrPtr, array.Length);
+
+                array.CopyTo(arrSpn);
+
+                arr[i] = (T*)arrPtr;
+            }
+
+            return arr;
+        }
+
+        private static T* Alloc<T>(T[] array) where T : unmanaged
+        {
+            var sizeOf = UnsafeUtility.SizeOf<T>();
+
+            var size = array.Length * sizeOf;
+
+            var alignment = UnsafeUtility.AlignOf<T>();
+
+            var ptr = UnsafeUtility.Malloc(size, alignment, Allocator.Persistent);
+
+            var source = MemoryMarshal.AsBytes(array.AsSpan());
+
+            var target = new Span<byte>(ptr, size);
+
+            source.CopyTo(target);
+
+            return (T*)ptr;
+        }
+
+        private static void Free(void* ptr)
+        {
+            UnsafeUtility.Free(ptr, Allocator.Persistent);
+        }
+
+        public void Dispose()
+        {
+            for (var i = 0; i < ArraysCount; i++)
+            {
+                Free(Coefficients[i]);
+                Free(DelayLine[i]);
+                Free(DelayLinePosition[i]);
+                Free(Taps[i]);
+            }
+
+            Free(Coefficients);
+            Free(DelayLine);
+            Free(DelayLinePosition);
+            Free(Taps);
+            Free(CoefficientsLength);
+            Free(TapsLength);
         }
     }
 
