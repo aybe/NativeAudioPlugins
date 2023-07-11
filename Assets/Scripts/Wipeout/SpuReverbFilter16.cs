@@ -2,10 +2,14 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Runtime.InteropServices;
 using JetBrains.Annotations;
 using Unity.Burst;
+using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 using UnityEngine;
 using UnityEngine.Serialization;
 using Wipeout.Formats.Audio.Extensions;
@@ -50,7 +54,8 @@ namespace Wipeout
 
         private SpuReverbFilter16Backup Reverb;
 
-        private SpuReverbHandler?  ReverbHandler;
+        private SpuReverbHandler? ReverbHandler;
+        private NativeFilter[]    NativeFilters;
 
         private void OnEnable()
         {
@@ -63,6 +68,20 @@ namespace Wipeout
             OnValidate();
 
             Reverb = new SpuReverbFilter16Backup(SpuReverbPreset.Hall); // this is the EXACT preset they've used
+            
+            NativeFilters = new[]
+            {
+                new NativeFilter(FilterState.CreateHalfBand()),
+                new NativeFilter(FilterState.CreateHalfBand()),
+            };
+        }
+
+        private void OnDisable()
+        {
+            foreach (var nativeFilter in NativeFilters)
+            {
+                nativeFilter.Dispose();
+            }
         }
 
         private void OnAudioFilterRead(float[] data, int channels)
@@ -81,6 +100,7 @@ namespace Wipeout
                 SpuReverbType.New => NewMethod,
                 SpuReverbType.New2 => NewMethod2,
                 SpuReverbType.New3 => NewMethod3,
+                SpuReverbType.New4 => NewMethod4,
                 _ => throw new ArgumentOutOfRangeException()
             };
         }
@@ -291,6 +311,31 @@ namespace Wipeout
             }
         }
 
+        private unsafe void NewMethod4(float[] data, int channels)
+        {
+            var sampleCount = data.Length / channels;
+            var sampleIndex = 0;
+            
+            for (var i = 0; i < sampleCount; i++)
+            {
+                for (var j = 0; j < channels; j++)
+                {
+                    ref var sample = ref data[sampleIndex++];
+
+                    var f = NativeFilters[j];
+
+                    var hArray = f.Coefficients;
+                    var hCount = f.CoefficientsLength;
+                    var tArray = f.Taps;
+                    var tCount = f.TapsLength;
+                    var zArray = f.DelayLine;
+                    var zState = f.DelayLinePosition;
+                    
+                    sample = Filter.Convolve(sample, hArray, hCount, tArray, tCount, zArray, zState);
+                }
+            }
+        }
+
         [BurstCompile(OptimizeFor = OptimizeFor.Performance)]
         private static unsafe void DoFiltering(
             float* pcm, int len, int hop, float* h, float* z, int taps, ref int state)
@@ -430,6 +475,107 @@ namespace Wipeout
         New,
         New2,
         New3,
-        Off
+        Off,
+        New4
+    }
+    
+    [Serializable]
+    [NoReorder]
+    public sealed class FilterState
+    {
+        public float[] Coefficients = null!;
+
+        public float[] DelayLine = null!;
+
+        public int[] Taps = null!;
+
+        public int Position;
+
+        public static FilterState CreateHalfBand(double fs = 44100.0d, double bw = 441.0d, FilterWindow fw = FilterWindow.Blackman)
+        {
+            if (fs <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(fs), fs, null);
+            }
+
+            if (bw < fs * 0.01d || bw > fs * 0.49d)
+            {
+                throw new ArgumentOutOfRangeException(nameof(bw), bw, null);
+            }
+
+            if (!Enum.IsDefined(typeof(FilterWindow), fw))
+            {
+                throw new InvalidEnumArgumentException(nameof(fw), (int)fw, typeof(FilterWindow));
+            }
+
+            var fc = fs / 4.0d;
+
+            var lp = Filter.LowPass(fs, fc, bw, fw);
+
+            var hb = Filter.HalfBandTaps(lp.Length);
+
+            return new FilterState
+            {
+                Coefficients = Array.ConvertAll(lp, Convert.ToSingle),
+                DelayLine    = new float[lp.Length * 2],
+                Position     = 0,
+                Taps         = hb
+            };
+        }
+    }
+
+    public readonly unsafe struct NativeFilter : IDisposable
+    {
+        public readonly float* Coefficients;
+        public readonly int    CoefficientsLength;
+        public readonly float* DelayLine;
+        public readonly int*   DelayLinePosition;
+        public readonly int*   Taps;
+        public readonly int    TapsLength;
+
+        public NativeFilter(FilterState state)
+        {
+            var coefficients = state.Coefficients;
+            var delayLine    = state.DelayLine;
+            var taps         = state.Taps;
+
+            Coefficients       = Alloc(coefficients);
+            CoefficientsLength = coefficients.Length;
+            DelayLine          = Alloc(delayLine);
+            DelayLinePosition  = Alloc(new[] { 0 });
+            Taps               = Alloc(taps);
+            TapsLength         = taps.Length;
+        }
+
+        private static T* Alloc<T>(T[] array) where T : unmanaged
+        {
+            var sizeOf = UnsafeUtility.SizeOf<T>();
+
+            var size = array.Length * sizeOf;
+
+            var alignment = UnsafeUtility.AlignOf<T>();
+
+            var ptr = UnsafeUtility.Malloc(size, alignment, Allocator.Persistent);
+
+            var source = MemoryMarshal.AsBytes(array.AsSpan());
+
+            var target = new Span<byte>(ptr, size);
+
+            source.CopyTo(target);
+
+            return (T*)ptr;
+        }
+
+        private static void Free<T>(T* ptr) where T : unmanaged
+        {
+            UnsafeUtility.Free(ptr, Allocator.Persistent);
+        }
+
+        public void Dispose()
+        {
+            Free(Coefficients);
+            Free(DelayLine);
+            Free(Taps);
+        }
     }
 }
