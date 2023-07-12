@@ -192,6 +192,78 @@ namespace Wipeout
             }
         }
 
+        private void NewMethod3(float[] data, int channels)
+        {
+            var length = data.Length / channels;
+
+            for (var i = 0; i < channels; i++)
+            {
+                var fs = FilterStates[i];
+
+                unsafe
+                {
+                    fixed (float* fi = &data[i])
+                    fixed (float* fc = fs.Input)
+                    fixed (float* fd = fs.Delay)
+                    {
+                        DoFiltering(fi, length, channels, fc, fd, fs.Count, ref fs.Index);
+                    }
+                }
+            }
+        }
+
+        private unsafe void NewMethod4(float[] data, int channels)
+        {
+            var sampleCount = data.Length / channels;
+            var sampleIndex = 0;
+
+            for (var i = 0; i < sampleCount; i++)
+            {
+                for (var j = 0; j < channels; j++)
+                {
+                    ref var sample = ref data[sampleIndex++];
+
+                    var f = NativeFilters[j];
+
+                    var hArray = f.Coefficients;
+                    var hCount = f.CoefficientsLength;
+                    var tArray = f.Taps;
+                    var tCount = f.TapsLength;
+                    var zArray = f.DelayLine;
+                    var zState = f.DelayLinePosition;
+
+                    sample = Filter.Convolve(sample, hArray, hCount, tArray, tCount, zArray, zState);
+                }
+            }
+        }
+
+        private unsafe void NewMethod5(float[] data, int channels)
+        {
+            if (AudioBuffer.Length < data.Length)
+            {
+                AudioBuffer = new float[data.Length * 2];
+                Debug.Log($"Resized buffer to {AudioBuffer.Length}");
+            }
+
+            fixed (float* src = data)
+            fixed (float* tgt = AudioBuffer)
+            {
+                UnsafeUtility.MemCpy(tgt, src, data.Length * sizeof(float));
+
+                var pcmSamples = data.Length / channels;
+                var f          = Filter2;
+                var phArray    = f.Coefficients;
+                var phCount    = f.CoefficientsLength;
+                var ptArray    = f.Taps;
+                var ptCount    = f.TapsLength;
+                var pzArray    = f.DelayLine;
+                var pzState    = f.DelayLinePosition;
+                Filter.Convolve2(tgt, pcmSamples, channels, phArray, phCount, ptArray, ptCount, pzArray, pzState);
+
+                UnsafeUtility.MemCpy(src, tgt, data.Length * sizeof(float));
+            }
+        }
+
         [SuppressMessage("ReSharper", "InconsistentNaming")]
         [SuppressMessage("ReSharper", "IdentifierTypo")]
         private static float fir_double_h(float input, int ntaps, float[] h, float[] z, ref int p_state)
@@ -292,78 +364,6 @@ namespace Wipeout
 
                     data++;
                 }
-            }
-        }
-
-        private void NewMethod3(float[] data, int channels)
-        {
-            var length = data.Length / channels;
-
-            for (var i = 0; i < channels; i++)
-            {
-                var fs = FilterStates[i];
-
-                unsafe
-                {
-                    fixed (float* fi = &data[i])
-                    fixed (float* fc = fs.Input)
-                    fixed (float* fd = fs.Delay)
-                    {
-                        DoFiltering(fi, length, channels, fc, fd, fs.Count, ref fs.Index);
-                    }
-                }
-            }
-        }
-
-        private unsafe void NewMethod4(float[] data, int channels)
-        {
-            var sampleCount = data.Length / channels;
-            var sampleIndex = 0;
-
-            for (var i = 0; i < sampleCount; i++)
-            {
-                for (var j = 0; j < channels; j++)
-                {
-                    ref var sample = ref data[sampleIndex++];
-
-                    var f = NativeFilters[j];
-
-                    var hArray = f.Coefficients;
-                    var hCount = f.CoefficientsLength;
-                    var tArray = f.Taps;
-                    var tCount = f.TapsLength;
-                    var zArray = f.DelayLine;
-                    var zState = f.DelayLinePosition;
-
-                    sample = Filter.Convolve(sample, hArray, hCount, tArray, tCount, zArray, zState);
-                }
-            }
-        }
-
-        private unsafe void NewMethod5(float[] data, int channels)
-        {
-            if (AudioBuffer.Length < data.Length)
-            {
-                AudioBuffer = new float[data.Length * 2];
-                Debug.Log($"Resized buffer to {AudioBuffer.Length}");
-            }
-
-            fixed (float* src = data)
-            fixed (float* tgt = AudioBuffer)
-            {
-                UnsafeUtility.MemCpy(tgt, src, data.Length * sizeof(float));
-
-                var pcmSamples = data.Length / channels;
-                var f          = Filter2;
-                var phArray    = f.Coefficients;
-                var phCount    = f.CoefficientsLength;
-                var ptArray    = f.Taps;
-                var ptCount    = f.TapsLength;
-                var pzArray    = f.DelayLine;
-                var pzState    = f.DelayLinePosition;
-                Filter.Convolve2(tgt, pcmSamples, channels, phArray, phCount, ptArray, ptCount, pzArray, pzState);
-
-                UnsafeUtility.MemCpy(src, tgt, data.Length * sizeof(float));
             }
         }
 
