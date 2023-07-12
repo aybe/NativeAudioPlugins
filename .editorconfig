@@ -1,11 +1,12 @@
 [*]
 # ReSharper properties
+resharper_csharp_max_line_length = 150
 resharper_int_align_assignments = true
 resharper_int_align_variables = true
 resharper_place_field_attribute_on_same_line = false
 
 [*.cs]
-dotnet_remove_unnecessary_suppression_exclusions=category: ReSharper
+dotnet_remove_unnecessary_suppression_exclusions = category: ReSharper
 
 # IDE0051: Remove unused private members
-dotnet_diagnostic.IDE0051.severity = none
+dotnet_diagnostic.ide0051.severity = none

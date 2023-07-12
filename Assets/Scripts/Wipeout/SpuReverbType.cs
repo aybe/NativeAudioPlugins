@@ -8,6 +8,10 @@ namespace Wipeout
         New3,
         Off,
         New4,
-        New5
+        New5,
+        HalfBandDoubleDelayManaged,
+        HalfBandDoubleDelayUnsafe,
+        FilterUnsafeStatic,
+        FilterUnsafeStaticBurst
     }
 }

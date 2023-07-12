@@ -17,8 +17,7 @@ namespace Wipeout
 
         public int Position;
 
-        public static FilterState CreateHalfBand(double fs = 44100.0d, double bw = 441.0d,
-            FilterWindow fw = FilterWindow.Blackman)
+        public static FilterState CreateHalfBand(double fs = 44100.0d, double bw = 441.0d, FilterWindow fw = FilterWindow.Blackman)
         {
             if (fs <= 0)
             {

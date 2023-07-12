@@ -135,13 +135,13 @@ namespace Wipeout.Formats.Audio.Extensions
                     zArray[index1] = zArray[index2] = *sample;
 
                     var filter = 0.0f;
+                    
                     for (var pos = 0; pos < tCount; pos++)
                     {
                         var tap = tArray[pos];
 
                         filter += hArray[tap] * zArray[index2 - tap];
                     }
-                    //goto skip;
 
                     index1++;
 
@@ -149,7 +149,6 @@ namespace Wipeout.Formats.Audio.Extensions
                     {
                         index1 = 0;
                     }
-                    skip:
 
                     *zState = index1;
                     *sample = filter;

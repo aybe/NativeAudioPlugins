@@ -15,6 +15,8 @@ namespace Wipeout
     [BurstCompile]
     public class SpuReverbFilter16 : MonoBehaviour
     {
+        #region Fields
+
         [FormerlySerializedAs("FilterEnabled")]
         public bool ApplyFilter = true;
 
@@ -56,6 +58,13 @@ namespace Wipeout
 
         private SpuReverbHandler? ReverbHandler;
 
+        [SerializeField]
+        private FilterState[] FiltersManaged;
+
+        #endregion
+
+        #region Methods
+
         private void OnEnable()
         {
             if (AudioSettings.outputSampleRate != 44100 || AudioSettings.speakerMode != AudioSpeakerMode.Stereo)
@@ -75,6 +84,12 @@ namespace Wipeout
             };
 
             Filter2 = new NativeFilter2(FilterState.CreateHalfBand(), 2);
+
+            FiltersManaged = new[]
+            {
+                FilterState.CreateHalfBand(),
+                FilterState.CreateHalfBand()
+            };
         }
 
         private void OnDisable()
@@ -105,6 +120,10 @@ namespace Wipeout
                 SpuReverbType.New3 => NewMethod3,
                 SpuReverbType.New4 => NewMethod4,
                 SpuReverbType.New5 => NewMethod5,
+                SpuReverbType.HalfBandDoubleDelayManaged => ProcessFiltersManaged,
+                SpuReverbType.HalfBandDoubleDelayUnsafe => FilterUnsafeSimple,
+                SpuReverbType.FilterUnsafeStatic => FilterUnsafeStatic,
+                SpuReverbType.FilterUnsafeStaticBurst => FilterUnsafeStaticBurst,
                 _ => throw new ArgumentOutOfRangeException()
             };
         }
@@ -437,6 +456,238 @@ namespace Wipeout
 
                 data[offsetL] = l3 * OutVol;
                 data[offsetR] = r3 * OutVol;
+            }
+        }
+
+        #endregion
+
+        private void ProcessFiltersManaged(float[] data, int channels)
+        {
+            for (var i = 0; i < channels; i++)
+            {
+                var filterState = FiltersManaged[i];
+                var sampleCount = data.Length / channels;
+                var sampleIndex = i;
+
+                var hArray = filterState.Coefficients;
+                var hCount = hArray.Length;
+                var tArray = filterState.Taps;
+                var tCount = tArray.Length;
+                var zArray = filterState.DelayLine;
+
+                for (var j = 0; j < sampleCount; j++)
+                {
+                    var index1 = filterState.Position;
+                    var index2 = filterState.Position + hCount;
+                    var sample = data[sampleIndex];
+
+                    zArray[index1] = zArray[index2] = sample;
+
+                    var filter = 0.0f;
+
+                    for (var pos = 0; pos < tCount; pos++)
+                    {
+                        var tap = tArray[pos];
+
+                        filter += hArray[tap] * zArray[index2 - tap];
+                    }
+
+                    index1++;
+
+                    if (index1 >= hCount)
+                    {
+                        index1 = 0;
+                    }
+
+                    filterState.Position = index1;
+
+                    data[sampleIndex] = filter;
+
+                    sampleIndex += channels;
+                }
+            }
+        }
+        
+        private unsafe void FilterUnsafeSimple(float[] data, int channels)
+        {
+            for (var i = 0; i < channels; i++)
+            {
+                var filterState = FiltersManaged[i];
+                var sampleCount = data.Length / channels;
+                var sampleIndex = i;
+
+                var hCount = filterState.Coefficients.Length;
+                var tCount = filterState.Taps.Length;
+
+                fixed (float* hArray = filterState.Coefficients)
+                fixed (float* zArray = filterState.DelayLine)
+                fixed (int* tArray = filterState.Taps)
+                {
+                    for (var j = 0; j < sampleCount; j++)
+                    {
+                        var index1 = filterState.Position;
+                        var index2 = filterState.Position + hCount;
+                        var sample = data[sampleIndex];
+
+                        zArray[index1] = zArray[index2] = sample;
+
+                        var filter = 0.0f;
+
+                        for (var pos = 0; pos < tCount; pos++)
+                        {
+                            var tap = tArray[pos];
+
+                            filter += hArray[tap] * zArray[index2 - tap];
+                        }
+
+                        index1++;
+
+                        if (index1 >= hCount)
+                        {
+                            index1 = 0;
+                        }
+
+                        filterState.Position = index1;
+
+                        data[sampleIndex] = filter;
+
+                        sampleIndex += channels;
+                    }
+                }
+            }
+        }
+
+        private unsafe void FilterUnsafeStatic(float[] data, int channels)
+        {
+            var sampleCount = data.Length / channels;
+
+            for (var i = 0; i < channels; i++)
+            {
+                var fState = FiltersManaged[i];
+                var hCount = fState.Coefficients.Length;
+                var tCount = fState.Taps.Length;
+                var zCount = fState.DelayLine.Length;
+
+                fixed (float* pData = &data[i])
+                fixed (float* hArray = fState.Coefficients)
+                fixed (float* zArray = fState.DelayLine)
+                fixed (int* tArray = fState.Taps)
+                fixed (int* zState = &fState.Position)
+                {
+                    FilterWithPointers(
+                        pData, i, channels, sampleCount, zState, hArray, hCount, zArray, zCount, tArray, tCount);
+                }
+            }
+        }
+
+        private unsafe void FilterUnsafeStaticBurst(float[] data, int channels)
+        {
+            var sampleCount = data.Length / channels;
+
+            for (var i = 0; i < channels; i++)
+            {
+                var fState = FiltersManaged[i];
+                var hCount = fState.Coefficients.Length;
+                var tCount = fState.Taps.Length;
+                var zCount = fState.DelayLine.Length;
+
+                fixed (float* pData = data)
+                fixed (float* hArray = fState.Coefficients)
+                fixed (float* zArray = fState.DelayLine)
+                fixed (int* tArray = fState.Taps)
+                fixed (int* zState = &fState.Position)
+                {
+                    FilterWithPointersBurst(
+                        pData, i, channels, sampleCount, zState, hArray, hCount, zArray, zCount, tArray, tCount);
+                }
+            }
+        }
+
+        private static unsafe void FilterWithPointers(
+            float* data, int dataChannel, int dataChannels,
+            int sampleCount, int* position,
+            float* hArray, int hCount, float* zArray, int zCount, int* tArray, int tCount
+        )
+        {
+            if (zCount != hCount * 2)
+            {
+                return;
+            }
+
+            for (var j = 0; j < sampleCount; j++)
+            {
+                var index1 = *position;
+                var index2 = *position + hCount;
+                var sample = &data[dataChannel];
+
+                zArray[index1] = zArray[index2] = *sample;
+
+                var filter = 0.0f;
+
+                for (var pos = 0; pos < tCount; pos++)
+                {
+                    var tap = tArray[pos];
+
+                    filter += hArray[tap] * zArray[index2 - tap];
+                }
+
+                index1++;
+
+                if (index1 >= hCount)
+                {
+                    index1 = 0;
+                }
+
+                *position = index1;
+
+                *data = filter;
+
+                data += dataChannels;
+            }
+        }
+        
+        [BurstCompile(OptimizeFor = OptimizeFor.Performance)]
+        private static unsafe void FilterWithPointersBurst(
+            float* data, int dataChannel, int dataChannels,
+            int sampleCount, int* position,
+            float* hArray, int hCount, float* zArray, int zCount, int* tArray, int tCount
+        )
+        {
+            if (zCount != hCount * 2)
+            {
+                return;
+            }
+            
+            var sample = &data[dataChannel];
+
+            for (var j = 0; j < sampleCount; j++)
+            {
+                var index1 = *position;
+                var index2 = *position + hCount;
+
+                zArray[index1] = zArray[index2] = *sample;
+
+                var filter = 0.0f;
+
+                for (var pos = 0; pos < tCount; pos++)
+                {
+                    var tap = tArray[pos];
+
+                    filter += hArray[tap] * zArray[index2 - tap];
+                }
+
+                index1++;
+
+                if (index1 >= hCount)
+                {
+                    index1 = 0;
+                }
+
+                *position = index1;
+
+                *sample = filter;
+
+                sample += dataChannels;
             }
         }
     }
