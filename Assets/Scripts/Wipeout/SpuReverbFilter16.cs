@@ -44,12 +44,16 @@ namespace Wipeout
         [SerializeField]
         private FilterStateOld[] FilterStates;
 
-        private Filter[] Filters;
+        private float[] AudioBuffer = new float[1024 * 2];
+
+        private NativeFilter2 Filter2 = null!;
+
+        private Filter[]       Filters;
+        private NativeFilter[] NativeFilters;
 
         private SpuReverbFilter16Backup Reverb;
 
         private SpuReverbHandler? ReverbHandler;
-        private NativeFilter[]    NativeFilters;
 
         private void OnEnable()
         {
@@ -62,11 +66,11 @@ namespace Wipeout
             OnValidate();
 
             Reverb = new SpuReverbFilter16Backup(SpuReverbPreset.Hall); // this is the EXACT preset they've used
-            
+
             NativeFilters = new[]
             {
                 new NativeFilter(FilterState.CreateHalfBand()),
-                new NativeFilter(FilterState.CreateHalfBand()),
+                new NativeFilter(FilterState.CreateHalfBand())
             };
 
             Filter2 = new NativeFilter2(FilterState.CreateHalfBand(), 2);
@@ -75,7 +79,7 @@ namespace Wipeout
         private void OnDisable()
         {
             Filter2.Dispose();
-            
+
             foreach (var nativeFilter in NativeFilters)
             {
                 nativeFilter.Dispose();
@@ -314,7 +318,7 @@ namespace Wipeout
         {
             var sampleCount = data.Length / channels;
             var sampleIndex = 0;
-            
+
             for (var i = 0; i < sampleCount; i++)
             {
                 for (var j = 0; j < channels; j++)
@@ -329,15 +333,11 @@ namespace Wipeout
                     var tCount = f.TapsLength;
                     var zArray = f.DelayLine;
                     var zState = f.DelayLinePosition;
-                    
+
                     sample = Filter.Convolve(sample, hArray, hCount, tArray, tCount, zArray, zState);
                 }
             }
         }
-
-        private float[] AudioBuffer = new float[1024 * 2];
-
-        private NativeFilter2 Filter2 = null!;
 
         private unsafe void NewMethod5(float[] data, int channels)
         {
@@ -361,7 +361,7 @@ namespace Wipeout
                 var pzArray    = f.DelayLine;
                 var pzState    = f.DelayLinePosition;
                 Filter.Convolve2(tgt, pcmSamples, channels, phArray, phCount, ptArray, ptCount, pzArray, pzState);
-                
+
                 UnsafeUtility.MemCpy(src, tgt, data.Length * sizeof(float));
             }
         }

@@ -35,6 +35,24 @@ namespace Wipeout
             TapsLength         = Alloc(tapsLength);
         }
 
+        public void Dispose()
+        {
+            for (var i = 0; i < ArraysCount; i++)
+            {
+                Free(Coefficients[i]);
+                Free(DelayLine[i]);
+                Free(DelayLinePosition[i]);
+                Free(Taps[i]);
+            }
+
+            Free(Coefficients);
+            Free(DelayLine);
+            Free(DelayLinePosition);
+            Free(Taps);
+            Free(CoefficientsLength);
+            Free(TapsLength);
+        }
+
         private static T[] Repeat<T>(T value, int count)
         {
             return Enumerable.Repeat(value, count).ToArray();
@@ -87,24 +105,6 @@ namespace Wipeout
         private static void Free(void* ptr)
         {
             UnsafeUtility.Free(ptr, Allocator.Persistent);
-        }
-
-        public void Dispose()
-        {
-            for (var i = 0; i < ArraysCount; i++)
-            {
-                Free(Coefficients[i]);
-                Free(DelayLine[i]);
-                Free(DelayLinePosition[i]);
-                Free(Taps[i]);
-            }
-
-            Free(Coefficients);
-            Free(DelayLine);
-            Free(DelayLinePosition);
-            Free(Taps);
-            Free(CoefficientsLength);
-            Free(TapsLength);
         }
     }
 }
