@@ -1,9 +1,6 @@
 #pragma warning disable IDE1006 // Naming Styles
-#nullable enable
 using System;
-using System.Diagnostics.CodeAnalysis;
 using Unity.Burst;
-using Unity.Collections.LowLevel.Unsafe;
 using UnityEngine;
 using UnityEngine.Serialization;
 using Wipeout.Formats.Audio.Extensions;
@@ -38,15 +35,7 @@ namespace Wipeout
         public FilterWindow Window = FilterWindow.Blackman;
 
         [SerializeField]
-        private SpuFilterState[] States;
-
-        [SerializeField]
         private SpuReverbType ReverbType;
-
-        [SerializeField]
-        private FilterStateOld[] FilterStates;
-
-        private float[] AudioBuffer = new float[1024 * 2];
 
         private NativeFilter2 Filter2 = null!;
 
@@ -55,7 +44,7 @@ namespace Wipeout
 
         private SpuReverbFilter16Backup Reverb;
 
-        private SpuReverbHandler? ReverbHandler;
+        private SpuReverbHandler ReverbHandler;
 
         [SerializeField]
         private FilterState[] FiltersManaged;
@@ -114,14 +103,6 @@ namespace Wipeout
             {
                 SpuReverbType.Off => null,
                 SpuReverbType.Old => ProcessAudio,
-                SpuReverbType.New => NewMethod,
-                SpuReverbType.New2 => NewMethod2,
-                SpuReverbType.New3 => NewMethod3,
-                SpuReverbType.New4 => NewMethod4,
-                SpuReverbType.New5 => NewMethod5,
-                SpuReverbType.HalfBandDoubleDelayManaged => ProcessFiltersManaged,
-                SpuReverbType.HalfBandDoubleDelayUnsafe => FilterUnsafeSimple,
-                SpuReverbType.FilterUnsafeStatic => FilterUnsafeStatic,
                 SpuReverbType.FilterUnsafeStaticBurst => FilterUnsafeStaticBurst,
                 _ => throw new ArgumentOutOfRangeException()
             };
@@ -147,233 +128,6 @@ namespace Wipeout
             };
 
             Debug.Log($"{LowPass}, {Quality}, {Window}, {coefficients.Length}");
-
-            States = new[]
-            {
-                new SpuFilterState(Array.ConvertAll(coefficients, Convert.ToSingle)),
-                new SpuFilterState(Array.ConvertAll(coefficients, Convert.ToSingle))
-            };
-
-            var f64 = Filter.LowPass(44100, 11025, 441, FilterWindow.Blackman);
-            var f32 = Array.ConvertAll(f64, Convert.ToSingle);
-            FilterStates = new[] { new FilterStateOld(f32), new FilterStateOld(f32) };
-        }
-
-        private void NewMethod(float[] data, int channels)
-        {
-            var sampleCount = data.Length / channels;
-            var sampleIndex = 0;
-
-            for (var j = 0; j < sampleCount; j++)
-            {
-                for (var i = 0; i < channels; i++)
-                {
-                    var f = States[i];
-                    var z = f.Delay;
-                    var n = z.Length;
-                    var h = f.Input;
-
-                    ref var sample = ref data[sampleIndex];
-
-                    sample = fir_double_h(sample, n, h, z, ref f.Index);
-
-                    sampleIndex++;
-                }
-            }
-        }
-
-        private unsafe void NewMethod2(float[] data, int channels)
-        {
-            var sampleCount = data.Length / channels;
-            var sampleIndex = 0;
-
-            for (var j = 0; j < sampleCount; j++)
-            {
-                for (var i = 0; i < channels; i++)
-                {
-                    var f = States[i];
-                    var z = f.Delay;
-                    var n = z.Length;
-                    var h = f.Input;
-
-                    fixed (float* ph = h)
-                    fixed (float* pz = z)
-                    fixed (int* pi = &f.Index)
-                    {
-                        ref var sample = ref data[sampleIndex];
-
-                        sample = fir_double_h(sample, n, ph, pz, pi);
-
-                        sampleIndex++;
-                    }
-                }
-            }
-        }
-
-        private void NewMethod3(float[] data, int channels)
-        {
-            var length = data.Length / channels;
-
-            for (var i = 0; i < channels; i++)
-            {
-                var fs = FilterStates[i];
-
-                unsafe
-                {
-                    fixed (float* fi = &data[i])
-                    fixed (float* fc = fs.Input)
-                    fixed (float* fd = fs.Delay)
-                    {
-                        DoFiltering(fi, length, channels, fc, fd, fs.Count, ref fs.Index);
-                    }
-                }
-            }
-        }
-
-        private unsafe void NewMethod4(float[] data, int channels)
-        {
-            var sampleCount = data.Length / channels;
-            var sampleIndex = 0;
-
-            for (var i = 0; i < sampleCount; i++)
-            {
-                for (var j = 0; j < channels; j++)
-                {
-                    ref var sample = ref data[sampleIndex++];
-
-                    var f = NativeFilters[j];
-
-                    var hArray = f.Coefficients;
-                    var hCount = f.CoefficientsLength;
-                    var tArray = f.Taps;
-                    var tCount = f.TapsLength;
-                    var zArray = f.DelayLine;
-                    var zState = f.DelayLinePosition;
-
-                    sample = Filter.Convolve(sample, hArray, hCount, tArray, tCount, zArray, zState);
-                }
-            }
-        }
-
-        private unsafe void NewMethod5(float[] data, int channels)
-        {
-            if (AudioBuffer.Length < data.Length)
-            {
-                AudioBuffer = new float[data.Length * 2];
-                Debug.Log($"Resized buffer to {AudioBuffer.Length}");
-            }
-
-            fixed (float* src = data)
-            fixed (float* tgt = AudioBuffer)
-            {
-                UnsafeUtility.MemCpy(tgt, src, data.Length * sizeof(float));
-
-                var pcmSamples = data.Length / channels;
-                var f          = Filter2;
-                var phArray    = f.Coefficients;
-                var phCount    = f.CoefficientsLength;
-                var ptArray    = f.Taps;
-                var ptCount    = f.TapsLength;
-                var pzArray    = f.DelayLine;
-                var pzState    = f.DelayLinePosition;
-                Filter.Convolve2(tgt, pcmSamples, channels, phArray, phCount, ptArray, ptCount, pzArray, pzState);
-
-                UnsafeUtility.MemCpy(src, tgt, data.Length * sizeof(float));
-            }
-        }
-
-        [SuppressMessage("ReSharper", "InconsistentNaming")]
-        [SuppressMessage("ReSharper", "IdentifierTypo")]
-        private static float fir_double_h(float input, int ntaps, float[] h, float[] z, ref int p_state)
-            /****************************************************************************
-            * fir_double_h: This uses doubled coefficients (supplied by caller) so that 
-            * the filter calculation always operates on a flat buffer.
-            *****************************************************************************/
-        {
-            var state = p_state;
-
-            /* store input at the beginning of the delay line */
-            z[state] = input;
-
-            /* calculate the filter */
-            var accum = 0.0f;
-            for (var i = 0; i < ntaps; i++)
-            {
-                accum += h[ntaps - state + i] * z[i];
-            }
-
-            /* decrement state, wrapping if below zero */
-            if (--state < 0)
-            {
-                state += ntaps;
-            }
-
-            p_state = state; /* return new state to caller */
-
-            return accum;
-        }
-
-        [BurstCompile(CompileSynchronously = true)]
-        [SuppressMessage("ReSharper", "InconsistentNaming")]
-        [SuppressMessage("ReSharper", "IdentifierTypo")]
-        private static unsafe float fir_double_h(float input, int ntaps, float* h, float* z, int* p_state)
-            /****************************************************************************
-            * fir_double_h: This uses doubled coefficients (supplied by caller) so that 
-            * the filter calculation always operates on a flat buffer.
-            *****************************************************************************/
-        {
-            var state = *p_state;
-
-            /* store input at the beginning of the delay line */
-            z[state] = input;
-
-            /* calculate the filter */
-            var accum = 0.0f;
-            for (var i = 0; i < ntaps; i++)
-            {
-                accum += h[ntaps - state + i] * z[i];
-            }
-
-            /* decrement state, wrapping if below zero */
-            if (--state < 0)
-            {
-                state += ntaps;
-            }
-
-            *p_state = state; /* return new state to caller */
-
-            return accum;
-        }
-
-        [BurstCompile(OptimizeFor = OptimizeFor.Performance)]
-        private static unsafe void DoFiltering(
-            float* pcm, int len, int hop, float* h, float* z, int taps, ref int state)
-        {
-            for (var i = 0; i < len; i++)
-            {
-                ref var source = ref *pcm;
-
-                z[state] = source;
-
-                var ph = h + taps - state;
-                var pz = z;
-
-                var target = 0.0f;
-
-                for (var j = 0; j < taps; j++)
-                {
-                    target += *ph++ * *pz++;
-                }
-
-                if (--state < 0)
-                {
-                    state += taps;
-                }
-
-                source = target;
-
-                pcm += hop;
-            }
         }
 
         private void ProcessAudio(float[] data, int channels)
@@ -420,125 +174,6 @@ namespace Wipeout
 
         #endregion
 
-        private void ProcessFiltersManaged(float[] data, int channels)
-        {
-            for (var i = 0; i < channels; i++)
-            {
-                var filterState = FiltersManaged[i];
-                var sampleCount = data.Length / channels;
-                var sampleIndex = i;
-
-                var hArray = filterState.Coefficients;
-                var hCount = hArray.Length;
-                var tArray = filterState.Taps;
-                var tCount = tArray.Length;
-                var zArray = filterState.DelayLine;
-
-                for (var j = 0; j < sampleCount; j++)
-                {
-                    var index1 = filterState.Position;
-                    var index2 = filterState.Position + hCount;
-                    var sample = data[sampleIndex];
-
-                    zArray[index1] = zArray[index2] = sample;
-
-                    var filter = 0.0f;
-
-                    for (var pos = 0; pos < tCount; pos++)
-                    {
-                        var tap = tArray[pos];
-
-                        filter += hArray[tap] * zArray[index2 - tap];
-                    }
-
-                    index1++;
-
-                    if (index1 >= hCount)
-                    {
-                        index1 = 0;
-                    }
-
-                    filterState.Position = index1;
-
-                    data[sampleIndex] = filter;
-
-                    sampleIndex += channels;
-                }
-            }
-        }
-        
-        private unsafe void FilterUnsafeSimple(float[] data, int channels)
-        {
-            for (var i = 0; i < channels; i++)
-            {
-                var filterState = FiltersManaged[i];
-                var sampleCount = data.Length / channels;
-                var sampleIndex = i;
-
-                var hCount = filterState.Coefficients.Length;
-                var tCount = filterState.Taps.Length;
-
-                fixed (float* hArray = filterState.Coefficients)
-                fixed (float* zArray = filterState.DelayLine)
-                fixed (int* tArray = filterState.Taps)
-                {
-                    for (var j = 0; j < sampleCount; j++)
-                    {
-                        var index1 = filterState.Position;
-                        var index2 = filterState.Position + hCount;
-                        var sample = data[sampleIndex];
-
-                        zArray[index1] = zArray[index2] = sample;
-
-                        var filter = 0.0f;
-
-                        for (var pos = 0; pos < tCount; pos++)
-                        {
-                            var tap = tArray[pos];
-
-                            filter += hArray[tap] * zArray[index2 - tap];
-                        }
-
-                        index1++;
-
-                        if (index1 >= hCount)
-                        {
-                            index1 = 0;
-                        }
-
-                        filterState.Position = index1;
-
-                        data[sampleIndex] = filter;
-
-                        sampleIndex += channels;
-                    }
-                }
-            }
-        }
-
-        private unsafe void FilterUnsafeStatic(float[] data, int channels)
-        {
-            var sampleCount = data.Length / channels;
-
-            for (var i = 0; i < channels; i++)
-            {
-                var fState = FiltersManaged[i];
-                var hCount = fState.Coefficients.Length;
-                var tCount = fState.Taps.Length;
-                var zCount = fState.DelayLine.Length;
-
-                fixed (float* pData = &data[i])
-                fixed (float* hArray = fState.Coefficients)
-                fixed (float* zArray = fState.DelayLine)
-                fixed (int* tArray = fState.Taps)
-                fixed (int* zState = &fState.Position)
-                {
-                    FilterWithPointers(
-                        pData, i, channels, sampleCount, zState, hArray, hCount, zArray, zCount, tArray, tCount);
-                }
-            }
-        }
-
         private unsafe void FilterUnsafeStaticBurst(float[] data, int channels)
         {
             var sampleCount = data.Length / channels;
@@ -562,49 +197,6 @@ namespace Wipeout
             }
         }
 
-        private static unsafe void FilterWithPointers(
-            float* data, int dataChannel, int dataChannels,
-            int sampleCount, int* position,
-            float* hArray, int hCount, float* zArray, int zCount, int* tArray, int tCount
-        )
-        {
-            if (zCount != hCount * 2)
-            {
-                return;
-            }
-
-            for (var j = 0; j < sampleCount; j++)
-            {
-                var index1 = *position;
-                var index2 = *position + hCount;
-                var sample = &data[dataChannel];
-
-                zArray[index1] = zArray[index2] = *sample;
-
-                var filter = 0.0f;
-
-                for (var pos = 0; pos < tCount; pos++)
-                {
-                    var tap = tArray[pos];
-
-                    filter += hArray[tap] * zArray[index2 - tap];
-                }
-
-                index1++;
-
-                if (index1 >= hCount)
-                {
-                    index1 = 0;
-                }
-
-                *position = index1;
-
-                *data = filter;
-
-                data += dataChannels;
-            }
-        }
-        
         [BurstCompile(OptimizeFor = OptimizeFor.Performance)]
         private static unsafe void FilterWithPointersBurst(
             float* data, int dataChannel, int dataChannels,

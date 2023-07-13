@@ -3,15 +3,12 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Unity.Burst;
 
 namespace Wipeout.Formats.Audio.Extensions
 {
     /// <summary>
     ///     https://fiiir.com/
     /// </summary>
-    [BurstCompile]
-    
     public sealed class Filter
     {
         public Filter(IReadOnlyCollection<double> coefficients)
@@ -63,101 +60,7 @@ namespace Wipeout.Formats.Audio.Extensions
 
             return result;
         }
-        
-        /// <summary>
-        ///     Performs a convolution.
-        /// </summary>
-        /// <param name="sample">Input sample.</param>
-        /// <param name="hArray">Coefficients.</param>
-        /// <param name="hCount">Coefficients count.</param>
-        /// <param name="tArray">Taps.</param>
-        /// <param name="tCount">Taps count.</param>
-        /// <param name="zArray">Doubled delay line.</param>
-        /// <param name="zState">Doubled delay line state.</param>
-        /// <returns>
-        ///     The resulting filtered sample.
-        /// </returns>
-        [BurstCompile(OptimizeFor = OptimizeFor.Performance)]
-        public static unsafe float Convolve(
-            in float sample, in float* hArray, in int hCount, in int* tArray, in int tCount, in float* zArray, in int* zState)
-        {
-            var index1 = *zState;
-            var index2 = *zState + hCount;
 
-            zArray[index1] = sample;
-            zArray[index2] = sample;
-
-            var filter = 0.0f;
-
-            for (var pos = 0; pos < tCount; pos++)
-            {
-                var tap = tArray[pos];
-
-                filter += hArray[tap] * zArray[index2 - tap];
-            }
-
-            index1++;
-
-            if (index1 >= hCount)
-            {
-                index1 = 0;
-            }
-
-            *zState = index1;
-
-            return filter;
-        }
-
-        [BurstCompile(OptimizeFor = OptimizeFor.Performance)]
-        public static unsafe void Convolve2(
-            in float* pcm, in int pcmSamples, in int pcmChannels,
-            in float** phArray, in int* phCount,
-            in int** ptArray, in int* ptCount,
-            in float** pzArray, in int** pzState
-        )
-        {
-            for (var i = 0; i < pcmChannels; i++)
-            {
-                var sample = &pcm[i];
-
-                var hArray = phArray[i];
-                var hCount = phCount[i];
-                var tArray = ptArray[i];
-                var tCount = ptCount[i];
-                var zArray = pzArray[i];
-                var zState = pzState[i];
-
-                for (var j = 0; j < pcmSamples; j++)
-                {
-                    var index1 = *zState;
-                    var index2 = *zState + hCount;
-
-                    zArray[index1] = zArray[index2] = *sample;
-
-                    var filter = 0.0f;
-                    
-                    for (var pos = 0; pos < tCount; pos++)
-                    {
-                        var tap = tArray[pos];
-
-                        filter += hArray[tap] * zArray[index2 - tap];
-                    }
-
-                    index1++;
-
-                    if (index1 >= hCount)
-                    {
-                        index1 = 0;
-                    }
-
-                    *zState = index1;
-                    *sample = filter;
-
-                    sample += pcmChannels;
-                }
-            }
-        }
-        
         public static int[] HalfBandTaps(int count)
         {
             var taps = Enumerable.Range(0, count).Where(i => i % 2 == 1 || i == count / 2).ToArray();
