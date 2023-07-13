@@ -3155,7 +3155,7 @@ MonoBehaviour:
     - 0
     - 0
     Index: 0
-  ReverbType: 6
+  ReverbType: 10
   FilterStates:
   - Input:
     - 2.071501e-34
@@ -5931,6 +5931,7 @@ MonoBehaviour:
     - 0
     Count: 461
     Index: 0
+  FiltersManaged: []
 --- !u!1 &932456949
 GameObject:
   m_ObjectHideFlags: 0
