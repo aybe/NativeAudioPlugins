@@ -4,13 +4,6 @@ using Unity.Collections.LowLevel.Unsafe;
 
 namespace Wipeout
 {
-    public struct NativeBuffer
-    {
-        public static NativeBuffer<T> Create<T>(T[] array) where T : unmanaged
-        {
-            return new NativeBuffer<T>(array);
-        }
-    }
     public unsafe struct NativeBuffer<T> : IDisposable where T : unmanaged
     {
         public readonly int Length;

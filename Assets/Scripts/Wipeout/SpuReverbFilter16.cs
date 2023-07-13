@@ -345,46 +345,6 @@ namespace Wipeout
             return accum;
         }
 
-        [BurstCompile(CompileSynchronously = true)]
-        private static unsafe void DoFilter(ref FilterData fd)
-        {
-            var channels = fd.DataChannels;
-
-            var sampleCount = fd.DataLength / channels;
-
-            for (var i = 0; i < channels; i++)
-            {
-                var state = fd.FiltersPositions[i];
-                var z     = fd.FiltersDelay[i];
-                var h     = fd.FiltersCoefficients[i];
-                var taps  = fd.FiltersTaps[i];
-                var data  = &fd.Data[i];
-
-                for (var j = 0; j < sampleCount; j++)
-                {
-                    z[state] = *data;
-
-                    var result = 0.0f;
-
-                    for (var k = 0; k < taps; k++)
-                    {
-                        result += h[taps - state + k] * z[i];
-                    }
-
-                    if (--state < 0)
-                    {
-                        state += taps;
-                    }
-
-                    fd.FiltersTaps[i] = state;
-
-                    *data = result;
-
-                    data++;
-                }
-            }
-        }
-
         [BurstCompile(OptimizeFor = OptimizeFor.Performance)]
         private static unsafe void DoFiltering(
             float* pcm, int len, int hop, float* h, float* z, int taps, ref int state)
