@@ -2,7 +2,7 @@
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 
-namespace Wipeout.Reverb.Obsolete
+namespace Wipeout
 {
     public struct NativeBuffer
     {

@@ -3,7 +3,7 @@ using System.Runtime.InteropServices;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 
-namespace Wipeout.Reverb.Obsolete
+namespace Wipeout
 {
     [StructLayout(LayoutKind.Sequential)]
     internal unsafe struct BufferHandler<T> : IDisposable where T : unmanaged

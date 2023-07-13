@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Wipeout.Reverb.Obsolete
+namespace Wipeout
 {
     public class NativeBox<T> : IDisposable where T : INativeObject
     {

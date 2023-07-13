@@ -2,7 +2,6 @@
 #nullable enable
 using System;
 using System.Diagnostics.CodeAnalysis;
-using Obsolete;
 using Unity.Burst;
 using Unity.Collections.LowLevel.Unsafe;
 using UnityEngine;

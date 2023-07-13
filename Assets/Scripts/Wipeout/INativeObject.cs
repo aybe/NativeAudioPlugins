@@ -1,4 +1,4 @@
-﻿namespace Wipeout.Reverb.Obsolete
+﻿namespace Wipeout
 {
     public interface INativeObject
     {
