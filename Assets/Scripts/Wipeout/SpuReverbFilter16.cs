@@ -124,9 +124,9 @@ namespace Wipeout
             ReverbHandler = ReverbType switch
             {
                 SpuReverbType.Off => null,
-                SpuReverbType.Old => ProcessAudio,
-                SpuReverbType.BurstOld => FilterUnsafeStaticBurst,
-                SpuReverbType.BurstNew => FilterUnsafeStaticBurstNew,
+                SpuReverbType.Managed => Managed,
+                SpuReverbType.BurstOld => BurstOld,
+                SpuReverbType.BurstNew => BurstNew,
                 _ => throw new ArgumentOutOfRangeException()
             };
         }
@@ -153,7 +153,7 @@ namespace Wipeout
             Debug.Log($"{LowPass}, {Quality}, {Window}, {coefficients.Length}");
         }
 
-        private void ProcessAudio(float[] data, int channels)
+        private void Managed(float[] data, int channels)
         {
             // we always do the processing to avoid delay in chain
 
@@ -195,7 +195,7 @@ namespace Wipeout
             }
         }
 
-        private unsafe void FilterUnsafeStaticBurst(float[] data, int channels)
+        private unsafe void BurstOld(float[] data, int channels)
         {
             var sampleCount = data.Length / channels;
 
@@ -212,14 +212,14 @@ namespace Wipeout
                 fixed (int* tArray = fState.Taps)
                 fixed (int* zState = &fState.Position)
                 {
-                    FilterWithPointersBurst(
+                    BurstOld(
                         pData, i, channels, sampleCount, zState, hArray, hCount, zArray, zCount, tArray, tCount);
                 }
             }
         }
 
         [BurstCompile(OptimizeFor = OptimizeFor.Performance)]
-        private static unsafe void FilterWithPointersBurst(
+        private static unsafe void BurstOld(
             float* data, int dataChannel, int dataChannels,
             int sampleCount, int* position,
             float* hArray, int hCount, float* zArray, int zCount, int* tArray, int tCount
@@ -263,7 +263,7 @@ namespace Wipeout
             }
         }
 
-        private void FilterUnsafeStaticBurstNew(float[] data, int channels)
+        private void BurstNew(float[] data, int channels)
         {
             ref var fs = ref NativeFilterState;
 

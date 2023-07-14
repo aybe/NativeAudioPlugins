@@ -3,7 +3,7 @@ namespace Wipeout
     internal enum SpuReverbType
     {
         Off,
-        Old,
+        Managed,
         BurstOld,
         BurstNew
     }
