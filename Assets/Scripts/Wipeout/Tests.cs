@@ -1,4 +1,4 @@
-﻿using System;
+﻿using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using UnityEditor;
@@ -6,10 +6,9 @@ using UnityEngine;
 
 namespace Wipeout
 {
+    [BurstCompile]
     internal unsafe class Tests : EditorWindow
     {
-        private UnsafeBuffer<UnsafeBuffer<float>> Buffer;
-
         private void OnGUI()
         {
             if (GUILayout.Button("Test"))
@@ -24,7 +23,7 @@ namespace Wipeout
             GetWindow<Tests>();
         }
 
-        public static void Test()
+        private static void Test()
         {
             var floats = new[]
             {
@@ -52,6 +51,7 @@ namespace Wipeout
                     Debug.Log(f);
                 }
             }
+
             buffer.Dispose();
             return;
 
@@ -61,6 +61,19 @@ namespace Wipeout
             }
 
             UnsafeUtility.Free(buffer, Allocator.Persistent);
+        }
+
+        [BurstCompile]
+        public static void TestBurst(ref NativeFilter buffer)
+        {
+        }
+
+        internal struct NativeFilter
+        {
+            public UnsafeBuffer<UnsafeBuffer<float>> Coefficients;
+            public UnsafeBuffer<UnsafeBuffer<float>> DelayLines;
+            public UnsafeBuffer<UnsafeBuffer<int>>   Positions;
+            public UnsafeBuffer<UnsafeBuffer<int>>   Taps;
         }
     }
 }
