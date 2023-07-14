@@ -1,7 +1,10 @@
 using System;
+using System.Linq;
 using System.Runtime.InteropServices;
 using Unity.Burst;
+using Unity.Mathematics;
 using UnityEngine;
+using Wipeout.Extensions;
 using Wipeout.Formats.Audio.Extensions;
 using Wipeout.Formats.Audio.Sony;
 
@@ -150,7 +153,7 @@ namespace Wipeout
                 new Filter(coefficients)
             };
 
-            Debug.Log($"{LowPass}, {Quality}, {Window}, {coefficients.Length}");
+            //Debug.Log($"{LowPass}, {Quality}, {Window}, {coefficients.Length}");
         }
 
         private void Managed(float[] data, int channels)
@@ -199,40 +202,36 @@ namespace Wipeout
         {
             var sampleCount = data.Length / channels;
 
-            for (var i = 0; i < channels; i++)
+            fixed (float* pData = data)
             {
-                var fState = FiltersManaged[i];
-                var hCount = fState.Coefficients.Length;
-                var tCount = fState.Taps.Length;
-                var zCount = fState.DelayLine.Length;
-
-                fixed (float* pData = data)
-                fixed (float* hArray = fState.Coefficients)
-                fixed (float* zArray = fState.DelayLine)
-                fixed (int* tArray = fState.Taps)
-                fixed (int* zState = &fState.Position)
+                for (var i = 0; i < channels; i++)
                 {
-                    BurstOld(
-                        pData, i, channels, sampleCount, zState, hArray, hCount, zArray, zCount, tArray, tCount);
+                    var fState = FiltersManaged[i];
+                    var hCount = fState.Coefficients.Length;
+                    var tCount = fState.Taps.Length;
+
+                    fixed (float* hArray = fState.Coefficients)
+                    fixed (float* zArray = fState.DelayLine)
+                    fixed (int* tArray = fState.Taps)
+                    fixed (int* zState = &fState.Position)
+                    {
+                        BurstOld(
+                            pData, i, channels, sampleCount, zState, hArray, hCount, zArray, tArray, tCount);
+                    }
                 }
             }
         }
 
-        [BurstCompile(OptimizeFor = OptimizeFor.Performance)]
+        [BurstCompile(OptimizeFor = OptimizeFor.Performance, DisableSafetyChecks = true)]
         private static unsafe void BurstOld(
             float* data, int dataChannel, int dataChannels,
             int sampleCount, int* position,
-            float* hArray, int hCount, float* zArray, int zCount, int* tArray, int tCount
+            float* hArray, int hCount, float* zArray, int* tArray, int tCount
         )
         {
-            if (zCount != hCount * 2)
-            {
-                return;
-            }
-
             var sample = &data[dataChannel];
 
-            for (var j = 0; j < sampleCount; j++)
+            for (var i = 0; i < sampleCount; i++)
             {
                 var index1 = *position;
                 var index2 = *position + hCount;
@@ -241,16 +240,16 @@ namespace Wipeout
 
                 var filter = 0.0f;
 
-                for (var pos = 0; pos < tCount; pos++)
+                for (var j = 0; j < tCount; j++)
                 {
-                    var tap = tArray[pos];
-
+                    var tap = tArray[j];
+                    
                     filter += hArray[tap] * zArray[index2 - tap];
                 }
 
                 index1++;
 
-                if (index1 >= hCount)
+                if (index1 == hCount)
                 {
                     index1 = 0;
                 }
@@ -267,11 +266,11 @@ namespace Wipeout
         {
             ref var fs = ref NativeFilterState;
 
-            Marshal.Copy(data, 0, fs.Source, data.Length);
+           // Marshal.Copy(data, 0, fs.Source, data.Length);
 
-            Tests.Convolve(ref fs, data.Length / channels, channels);
+            Tests.ConvolveN(ref fs, data.Length / channels, channels);
 
-            Marshal.Copy(fs.Target, data, 0, data.Length);
+           // Marshal.Copy(fs.Target, data, 0, data.Length);
         }
 
         #endregion

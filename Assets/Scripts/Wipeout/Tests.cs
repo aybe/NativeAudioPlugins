@@ -113,11 +113,13 @@ namespace Wipeout
             triplesBuffer.Dispose();
         }
 
-        [BurstCompile(OptimizeFor = OptimizeFor.Performance)]
-        public static unsafe void Convolve(ref NativeFilterState buffer, int samples, int channels)
+        [BurstCompile(OptimizeFor = OptimizeFor.Performance, DisableSafetyChecks = true, DisableDirectCall = false)]
+        public static unsafe void ConvolveN(ref NativeFilterState buffer, int samples, int channels)
         {
             for (var i = 0; i < channels; i++)
             {
+                Convolve1(ref buffer, samples, channels, i);
+                continue;
                 var h = buffer.Coefficients[i];
                 var z = buffer.Delays[i];
                 var t = buffer.Taps[i];
@@ -151,8 +153,43 @@ namespace Wipeout
             }
         }
 
+        [BurstCompile(OptimizeFor = OptimizeFor.Performance, DisableSafetyChecks = true, DisableDirectCall = false)]
+        private static unsafe void Convolve1(
+            ref NativeFilterState buffer, int samples, int channels, int channel)
+        {
+            var h = buffer.Coefficients[channel];
+            var z = buffer.Delays[channel];
+            var t = buffer.Taps[channel];
+
+            var n = h.Count;
+            var k = t.Count;
+
+            ref var p = ref buffer.Positions[channel][0];
+
+            var x = &buffer.Source.Items[channel];
+            var y = &buffer.Target.Items[channel];
+
+            for (var i = 0; i < samples; i++, p++, x += channels, y += channels)
+            {
+                if (p >= n)
+                {
+                    p = 0;
+                }
+
+                z[p] = z[p + n] = *x;
+
+                *y = 0.0f;
+
+                for (var j = 0; j < k; j++)
+                {
+                    var w = t[j];
+                    *y += h[w] * z[p + n - w];
+                }
+            }
+        }
+
         [BurstCompile(OptimizeFor = OptimizeFor.Performance)]
-        private static unsafe void Convolve(
+        private static unsafe void ConvolveOld(
             ref NativeFilterState buffer, float* source, float* target, int samples, int channels, int channel)
         {
             var h = buffer.Coefficients[channel];
