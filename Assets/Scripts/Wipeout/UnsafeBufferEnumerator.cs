@@ -4,18 +4,19 @@ using System.Collections.Generic;
 
 namespace Wipeout
 {
-    internal sealed unsafe class UnsafeBufferEnumerator<T> : IEnumerator<T> where T : unmanaged
+    public unsafe struct UnsafeBufferEnumerator<T> : IEnumerator<T> where T : unmanaged
     {
         private readonly int Count;
 
         private readonly T* Items;
 
-        private int Index = -1;
+        private int Index;
 
         public UnsafeBufferEnumerator(int count, T* items)
         {
             Items = items;
             Count = count;
+            Index = -1;
         }
 
         public bool MoveNext()
@@ -28,11 +29,11 @@ namespace Wipeout
             Index = -1;
         }
 
-        public T Current => *(Items + Index);
+        public readonly T Current => *(Items + Index);
 
-        object IEnumerator.Current => Current;
+        readonly object IEnumerator.Current => Current;
 
-        void IDisposable.Dispose()
+        readonly void IDisposable.Dispose()
         {
         }
     }

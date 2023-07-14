@@ -13,7 +13,8 @@ namespace Wipeout
 
         public readonly T* Items;
 
-        public UnsafeBuffer(int count) : this(count, UnsafeBufferUtility.Malloc<T>(count))
+        public UnsafeBuffer(int count)
+            : this(count, UnsafeBufferUtility.Malloc<T>(count))
         {
         }
 
@@ -45,30 +46,30 @@ namespace Wipeout
         {
             var type = GetType();
 
-            if (type.IsGenericType)
-            {
-                var definition1 = type.GetGenericTypeDefinition();
-                if (definition1 == typeof(UnsafeBuffer<>))
-                {
-                    var argument = type.GenericTypeArguments[0];
+            Debug.Log(type.GetNiceName()); // TODO delete
 
-                    if (argument.IsGenericType)
+            var argument = type.GenericTypeArguments[0];
+
+            if (argument.IsGenericType)
+            {
+                var definition2 = argument.GetGenericTypeDefinition();
+                if (definition2 == typeof(UnsafeBuffer<>))
+                {
+                    Debug.Log("disposing");
+                    foreach (var item in this)
                     {
-                        var definition2 = argument.GetGenericTypeDefinition();
-                        if (definition2 == typeof(UnsafeBuffer<>))
-                        {
-                            foreach (var item in this)
-                            {
-                                ((IDisposable)item).Dispose();
-                            }
-                        }
-                    }
-                    else
-                    {
-                        Debug.Log($"{Count} {*Items}");
-                        UnsafeUtility.Free(Items, Allocator.Persistent);
+                        ((IDisposable)item).Dispose();
                     }
                 }
+                else
+                {
+                    throw new InvalidOperationException();
+                }
+            }
+            else
+            {
+                Debug.Log($"{Count} {*Items}");
+                UnsafeUtility.Free(Items, Allocator.Persistent);
             }
         }
 
@@ -84,7 +85,7 @@ namespace Wipeout
 
         public override string ToString()
         {
-            return $"{nameof(Count)}: {Count}, {GetType().GetRealTypeName()}";
+            return $"{nameof(Count)}: {Count}, {GetType().GetNiceName()}";
         }
     }
 }

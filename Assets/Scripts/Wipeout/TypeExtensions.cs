@@ -1,28 +1,34 @@
 ﻿using System;
-using System.Text;
+using System.Text.RegularExpressions;
 
 namespace Wipeout
 {
     public static class TypeExtensions
     {
-        public static string GetRealTypeName(this Type t)
-        {
-            if (!t.IsGenericType)
-                return t.Name;
+        private const RegexOptions GetNiceNameRegexOptions = RegexOptions.Compiled | RegexOptions.Singleline;
 
-            var sb = new StringBuilder();
-            sb.Append(t.Name[..t.Name.IndexOf('`')]);
-            sb.Append('<');
-            var appendComma = false;
-            foreach (var arg in t.GetGenericArguments())
+        private static readonly Regex GetNiceNameRegex1 = new(@"`\d\[", GetNiceNameRegexOptions);
+
+        private static readonly Regex GetNiceNameRegex2 = new(@"\]", GetNiceNameRegexOptions);
+
+        private static readonly Regex GetNiceNameRegex3 = new(@"\w+\.", GetNiceNameRegexOptions);
+
+        public static string GetNiceName(this Type type, bool full = false)
+        {
+            var name = type.ToString();
+
+            name = GetNiceNameRegex1.Replace(name, "<");
+
+            name = GetNiceNameRegex2.Replace(name, ">");
+
+            if (full)
             {
-                if (appendComma) sb.Append(',');
-                sb.Append(GetRealTypeName(arg));
-                appendComma = true;
+                return name;
             }
 
-            sb.Append('>');
-            return sb.ToString();
+            name = GetNiceNameRegex3.Replace(name, string.Empty);
+
+            return name;
         }
     }
 }
