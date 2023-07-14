@@ -41,34 +41,23 @@ namespace Wipeout
         {
             return buffer.Items;
         }
+        
+        public static implicit operator IntPtr(UnsafeBuffer<T> buffer)
+        {
+            return (IntPtr)buffer.Items;
+        }
 
         public void Dispose()
         {
-            var type = GetType();
-
-            Debug.Log(type.GetNiceName()); // TODO delete
-
-            var argument = type.GenericTypeArguments[0];
-
-            if (argument.IsGenericType)
+            if (GetType().GenericTypeArguments[0].IsGenericType)
             {
-                var definition2 = argument.GetGenericTypeDefinition();
-                if (definition2 == typeof(UnsafeBuffer<>))
+                foreach (var item in this)
                 {
-                    Debug.Log("disposing");
-                    foreach (var item in this)
-                    {
-                        ((IDisposable)item).Dispose();
-                    }
-                }
-                else
-                {
-                    throw new InvalidOperationException();
+                    ((IDisposable)item).Dispose();
                 }
             }
             else
             {
-                Debug.Log($"{Count} {*Items}");
                 UnsafeUtility.Free(Items, Allocator.Persistent);
             }
         }

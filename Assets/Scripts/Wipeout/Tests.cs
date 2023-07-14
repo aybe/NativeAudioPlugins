@@ -7,7 +7,7 @@ namespace Wipeout
     [BurstCompile]
     internal class Tests : EditorWindow
     {
-        private NativeFilter NativeFilter1;
+        private NativeFilterState NativeFilter1;
 
         private void OnGUI()
         {
@@ -113,17 +113,76 @@ namespace Wipeout
             triplesBuffer.Dispose();
         }
 
-        [BurstCompile]
-        public static void TestBurst(ref NativeFilter buffer)
+        [BurstCompile(OptimizeFor = OptimizeFor.Performance)]
+        public static unsafe void Convolve(ref NativeFilterState buffer, int samples, int channels)
         {
+            for (var i = 0; i < channels; i++)
+            {
+                var h = buffer.Coefficients[i];
+                var z = buffer.Delays[i];
+                var t = buffer.Taps[i];
+
+                var n = h.Count;
+                var o = t.Count;
+
+                ref var p = ref buffer.Positions[i][0];
+
+                var x = &buffer.Source.Items[i];
+                var y = &buffer.Target.Items[i];
+
+                for (var j = 0; j < samples; j++, p++, x += channels, y += channels)
+                {
+                    if (p >= n)
+                    {
+                        p = 0;
+                    }
+
+                    z[p] = z[p + n] = *x;
+
+                    *y = 0.0f;
+
+                    for (var k = 0; k < o; k++)
+                    {
+                        var w = t[k];
+
+                        *y += h[w] * z[p + n - w];
+                    }
+                }
+            }
         }
 
-        internal struct NativeFilter
+        [BurstCompile(OptimizeFor = OptimizeFor.Performance)]
+        private static unsafe void Convolve(
+            ref NativeFilterState buffer, float* source, float* target, int samples, int channels, int channel)
         {
-            public UnsafeBuffer<UnsafeBuffer<float>> Coefficients;
-            public UnsafeBuffer<UnsafeBuffer<float>> DelayLines;
-            public UnsafeBuffer<UnsafeBuffer<int>>   Positions;
-            public UnsafeBuffer<UnsafeBuffer<int>>   Taps;
+            var h = buffer.Coefficients[channel];
+            var z = buffer.Delays[channel];
+            var t = buffer.Taps[channel];
+            
+            var n = h.Count;
+            var k = t.Count;
+
+            ref var p = ref buffer.Positions[channel][0];
+
+            var x = &source[channel];
+            var y = &target[channel];
+
+            for (var i = 0; i < samples; i++, x += channels, y += channels, p++)
+            {
+                if (p >= n)
+                {
+                    p = 0;
+                }
+
+                z[p] = z[p + n] = *x;
+
+                *y = 0.0f;
+
+                for (int j = 0, w = t[j]; j < k; j++, w = t[j])
+                {
+                    *y += h[w] * z[p + n - w];
+                }
+            }
         }
     }
 }

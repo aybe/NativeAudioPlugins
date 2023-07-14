@@ -1,5 +1,6 @@
 #pragma warning disable IDE1006 // Naming Styles
 using System;
+using System.Runtime.InteropServices;
 using Unity.Burst;
 using UnityEngine;
 using UnityEngine.Serialization;
@@ -11,6 +12,85 @@ namespace Wipeout
     [BurstCompile]
     public class SpuReverbFilter16 : MonoBehaviour
     {
+        private unsafe void FilterUnsafeStaticBurst(float[] data, int channels)
+        {
+            var sampleCount = data.Length / channels;
+
+            for (var i = 0; i < channels; i++)
+            {
+                var fState = FiltersManaged[i];
+                var hCount = fState.Coefficients.Length;
+                var tCount = fState.Taps.Length;
+                var zCount = fState.DelayLine.Length;
+
+                fixed (float* pData = data)
+                fixed (float* hArray = fState.Coefficients)
+                fixed (float* zArray = fState.DelayLine)
+                fixed (int* tArray = fState.Taps)
+                fixed (int* zState = &fState.Position)
+                {
+                    FilterWithPointersBurst(
+                        pData, i, channels, sampleCount, zState, hArray, hCount, zArray, zCount, tArray, tCount);
+                }
+            }
+        }
+
+        [BurstCompile(OptimizeFor = OptimizeFor.Performance)]
+        private static unsafe void FilterWithPointersBurst(
+            float* data, int dataChannel, int dataChannels,
+            int sampleCount, int* position,
+            float* hArray, int hCount, float* zArray, int zCount, int* tArray, int tCount
+        )
+        {
+            if (zCount != hCount * 2)
+            {
+                return;
+            }
+
+            var sample = &data[dataChannel];
+
+            for (var j = 0; j < sampleCount; j++)
+            {
+                var index1 = *position;
+                var index2 = *position + hCount;
+
+                zArray[index1] = zArray[index2] = *sample;
+
+                var filter = 0.0f;
+
+                for (var pos = 0; pos < tCount; pos++)
+                {
+                    var tap = tArray[pos];
+
+                    filter += hArray[tap] * zArray[index2 - tap];
+                }
+
+                index1++;
+
+                if (index1 >= hCount)
+                {
+                    index1 = 0;
+                }
+
+                *position = index1;
+
+                *sample = filter;
+
+                sample += dataChannels;
+            }
+        }
+
+        private void FilterUnsafeStaticBurstNew(float[] data, int channels)
+        {
+            ref var fs = ref NativeFilterState;
+
+            Marshal.Copy(data, 0, fs.Source, data.Length);
+
+            Tests.Convolve(ref fs, data.Length / channels, channels);
+
+            Marshal.Copy(fs.Target, data, 0, data.Length);
+        }
+
         #region Fields
 
         [FormerlySerializedAs("FilterEnabled")]
@@ -39,7 +119,8 @@ namespace Wipeout
 
         private NativeFilter2 Filter2 = null!;
 
-        private Filter[]       Filters;
+        private Filter[] Filters;
+
         private NativeFilter[] NativeFilters;
 
         private SpuReverbFilter16Backup Reverb;
@@ -48,6 +129,8 @@ namespace Wipeout
 
         [SerializeField]
         private FilterState[] FiltersManaged;
+
+        private NativeFilterState NativeFilterState;
 
         #endregion
 
@@ -78,16 +161,37 @@ namespace Wipeout
                 FilterState.CreateHalfBand(),
                 FilterState.CreateHalfBand()
             };
+
+            // TODO
+
+            var f = FilterState.CreateHalfBand();
+
+            NativeFilterState = new NativeFilterState
+            {
+                Source       = UnsafeBufferUtility.Allocate(new float[44100 * 2]),
+                Target       = UnsafeBufferUtility.Allocate(new float[44100 * 2]),
+                Coefficients = UnsafeBufferUtility.Allocate(new[] { f.Coefficients, f.Coefficients }),
+                Delays       = UnsafeBufferUtility.Allocate(new[] { f.DelayLine, f.DelayLine }),
+                Taps         = UnsafeBufferUtility.Allocate(new[] { f.Taps, f.Taps }),
+                Positions    = UnsafeBufferUtility.Allocate(new[] { new[] { 0 }, new[] { 0 } })
+            };
         }
 
         private void OnDisable()
         {
+            if (!enabled)
+            {
+                return;
+            }
+
             Filter2.Dispose();
 
             foreach (var nativeFilter in NativeFilters)
             {
                 nativeFilter.Dispose();
             }
+
+            NativeFilterState.Dispose();
         }
 
         private void OnAudioFilterRead(float[] data, int channels)
@@ -103,7 +207,8 @@ namespace Wipeout
             {
                 SpuReverbType.Off => null,
                 SpuReverbType.Old => ProcessAudio,
-                SpuReverbType.FilterUnsafeStaticBurst => FilterUnsafeStaticBurst,
+                SpuReverbType.BurstOld => FilterUnsafeStaticBurst,
+                SpuReverbType.BurstNew => FilterUnsafeStaticBurstNew,
                 _ => throw new ArgumentOutOfRangeException()
             };
         }
@@ -173,73 +278,5 @@ namespace Wipeout
         }
 
         #endregion
-
-        private unsafe void FilterUnsafeStaticBurst(float[] data, int channels)
-        {
-            var sampleCount = data.Length / channels;
-
-            for (var i = 0; i < channels; i++)
-            {
-                var fState = FiltersManaged[i];
-                var hCount = fState.Coefficients.Length;
-                var tCount = fState.Taps.Length;
-                var zCount = fState.DelayLine.Length;
-
-                fixed (float* pData = data)
-                fixed (float* hArray = fState.Coefficients)
-                fixed (float* zArray = fState.DelayLine)
-                fixed (int* tArray = fState.Taps)
-                fixed (int* zState = &fState.Position)
-                {
-                    FilterWithPointersBurst(
-                        pData, i, channels, sampleCount, zState, hArray, hCount, zArray, zCount, tArray, tCount);
-                }
-            }
-        }
-
-        [BurstCompile(OptimizeFor = OptimizeFor.Performance)]
-        private static unsafe void FilterWithPointersBurst(
-            float* data, int dataChannel, int dataChannels,
-            int sampleCount, int* position,
-            float* hArray, int hCount, float* zArray, int zCount, int* tArray, int tCount
-        )
-        {
-            if (zCount != hCount * 2)
-            {
-                return;
-            }
-            
-            var sample = &data[dataChannel];
-
-            for (var j = 0; j < sampleCount; j++)
-            {
-                var index1 = *position;
-                var index2 = *position + hCount;
-
-                zArray[index1] = zArray[index2] = *sample;
-
-                var filter = 0.0f;
-
-                for (var pos = 0; pos < tCount; pos++)
-                {
-                    var tap = tArray[pos];
-
-                    filter += hArray[tap] * zArray[index2 - tap];
-                }
-
-                index1++;
-
-                if (index1 >= hCount)
-                {
-                    index1 = 0;
-                }
-
-                *position = index1;
-
-                *sample = filter;
-
-                sample += dataChannels;
-            }
-        }
     }
 }
