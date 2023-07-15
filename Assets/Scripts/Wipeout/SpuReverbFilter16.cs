@@ -6,7 +6,6 @@ using Unity.Collections.LowLevel.Unsafe;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Assertions;
-using UnityEngine.Serialization;
 using Wipeout.Formats.Audio.Extensions;
 using Wipeout.Formats.Audio.Sony;
 
@@ -286,18 +285,6 @@ namespace Wipeout
         #region Vectorized
 
         [SerializeField]
-        private float[] VectorizedH2;
-
-        [SerializeField]
-        private float2[] VectorizedZ2;
-
-        [SerializeField]
-        private float[] FilterBuffer = new float[44100 * 2];
-
-        [SerializeField]
-        private int VectorizedP2;
-
-        [SerializeField]
         private float4[] VectorizedH4;
 
         [SerializeField]
@@ -305,6 +292,9 @@ namespace Wipeout
 
         [SerializeField]
         private int VectorizedP4;
+
+        [SerializeField]
+        private NewFilterState NewFilterState = new();
 
         private void VectorizedInit()
         {
@@ -314,8 +304,8 @@ namespace Wipeout
 
             h = h.Where((_, t) => t % 2 == 1 || t == h.Length / 2).ToArray();
 
-            VectorizedH2 = h.ToArray();
-            VectorizedZ2 = new float2[VectorizedH2.Length * 2];
+            NewFilterState.Coefficients = h.ToArray();
+            NewFilterState.Delays       = new float2[NewFilterState.Coefficients.Length * 2];
 
             var length = h.Length % 4;
 
@@ -378,7 +368,7 @@ namespace Wipeout
 
             var span = MemoryMarshal.Cast<float, float2>(data);
 
-            TestVectors.TestVectorization2(span, VectorizedH2, VectorizedZ2, ref VectorizedP2);
+            TestVectors.TestVectorization2(span, NewFilterState.Coefficients, NewFilterState.Delays, ref NewFilterState.Position);
         }
 
         private unsafe void Vectorized2Burst(float[] data, int channels)
@@ -386,28 +376,30 @@ namespace Wipeout
             Assert.AreEqual(0, data.Length % 2);
 
             fixed (float* samples = data)
-            fixed (float* h = VectorizedH2)
-            fixed (float2* z = VectorizedZ2)
+            fixed (float* h = NewFilterState.Coefficients)
+            fixed (float2* z = NewFilterState.Delays)
             {
-                TestVectors.TestVectorization2((float2*)samples, data.Length / 2, h, VectorizedH2.Length, z, ref VectorizedP2);
+                TestVectors.TestVectorization2((float2*)samples, data.Length / 2, h, NewFilterState.Coefficients.Length, z,
+                    ref NewFilterState.Position);
             }
         }
 
         private unsafe void Vectorized2BurstMulti(float[] data, int channels)
         {
             var length = data.Length;
-            
+
             Assert.AreEqual(0, length % 2);
 
             fixed (float* source = data)
-            fixed (float* target = FilterBuffer)
-            fixed (float* h = VectorizedH2)
-            fixed (float2* z = VectorizedZ2)
+            fixed (float* target = NewFilterState.Buffer)
+            fixed (float* h = NewFilterState.Coefficients)
+            fixed (float2* z = NewFilterState.Delays)
             {
                 var samples = length / channels;
-                
-                TestVectors.TestVectorization2((float2*)source, (float2*)target, samples, h, VectorizedH2.Length, z, ref VectorizedP2);
-                
+
+                TestVectors.TestVectorization2((float2*)source, (float2*)target, samples, h, NewFilterState.Coefficients.Length, z,
+                    ref NewFilterState.Position);
+
                 UnsafeUtility.MemCpy(source, target, length * sizeof(float));
             }
         }
@@ -422,5 +414,17 @@ namespace Wipeout
         }
 
         #endregion
+    }
+
+    [Serializable]
+    public sealed class NewFilterState
+    {
+        public float[] Coefficients;
+
+        public float2[] Delays;
+
+        public float[] Buffer = new float[44100 * 2];
+
+        public int Position;
     }
 }
