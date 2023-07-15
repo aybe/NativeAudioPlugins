@@ -4,7 +4,7 @@ using System.Runtime.InteropServices;
 using Unity.Burst;
 using Unity.Mathematics;
 using UnityEngine;
-using Wipeout.Extensions;
+using UnityEngine.Assertions;
 using Wipeout.Formats.Audio.Extensions;
 using Wipeout.Formats.Audio.Sony;
 
@@ -96,6 +96,8 @@ namespace Wipeout
                 Taps         = UnsafeBufferUtility.Allocate(new[] { f.Taps, f.Taps }),
                 Positions    = UnsafeBufferUtility.Allocate(new[] { new[] { 0 }, new[] { 0 } })
             };
+
+            VectorizedInit();
         }
 
         private void OnDisable()
@@ -130,6 +132,7 @@ namespace Wipeout
                 SpuReverbType.Managed => Managed,
                 SpuReverbType.BurstOld => BurstOld,
                 SpuReverbType.BurstNew => BurstNew,
+                SpuReverbType.Vectorized => Vectorized,
                 _ => throw new ArgumentOutOfRangeException()
             };
         }
@@ -243,7 +246,7 @@ namespace Wipeout
                 for (var j = 0; j < tCount; j++)
                 {
                     var tap = tArray[j];
-                    
+
                     filter += hArray[tap] * zArray[index2 - tap];
                 }
 
@@ -266,11 +269,96 @@ namespace Wipeout
         {
             ref var fs = ref NativeFilterState;
 
-           // Marshal.Copy(data, 0, fs.Source, data.Length);
+            // Marshal.Copy(data, 0, fs.Source, data.Length);
 
             Tests.ConvolveN(ref fs, data.Length / channels, channels);
 
-           // Marshal.Copy(fs.Target, data, 0, data.Length);
+            // Marshal.Copy(fs.Target, data, 0, data.Length);
+        }
+
+        #endregion
+
+        #region Vectorized
+
+        [SerializeField]
+        private float4[] VectorizedH;
+
+        [SerializeField]
+        private float4[] VectorizedZ;
+
+        [SerializeField]
+        private int VectorizedP;
+
+        private void VectorizedInit()
+        {
+            var f = FilterState.CreateHalfBand();
+
+            var h = f.Coefficients;
+
+            h = h.Where((_, t) => t % 2 == 1 || t == h.Length / 2).ToArray();
+
+            var length = h.Length % 4;
+
+            Array.Resize(ref h, h.Length + length);
+
+            for (var i = 0; i < length; i++)
+            {
+                h[h.Length - length + i] = 0.0f;
+            }
+
+            h = VectorizedDuplicate(h, 2);
+
+            var z = new float[h.Length * 2];
+            
+            VectorizedH = ConvertToFloat4Array(h);
+            VectorizedZ = ConvertToFloat4Array(z);
+        }
+
+        private static float4[] ConvertToFloat4Array(float[] source)
+        {
+            Assert.AreEqual(0, source.Length % 4);
+            
+            var length = source.Length / 4;
+            
+            var result = new float4[length];
+
+            for (var i = 0; i < length; i++)
+            {
+                var x = source[i * 4 + 0];
+                var y = source[i * 4 + 1];
+                var z = source[i * 4 + 2];
+                var w = source[i * 4 + 3];
+                
+                result[i] = new float4(x, y, z, w);
+            }
+
+            return result;
+        }
+
+        private static T[] VectorizedDuplicate<T>(T[] source, int repeat)
+        {
+            var length = source.Length;
+            var result = new T[length * repeat];
+            var offset = 0;
+
+            for (var i = 0; i < length; i++)
+            {
+                for (var j = 0; j < repeat; j++)
+                {
+                    result[offset++] = source[i];
+                }
+            }
+
+            return result;
+        }
+
+        private void Vectorized(float[] data, int channels)
+        {
+            Assert.AreEqual(0, data.Length % 4);
+            
+            var span = MemoryMarshal.Cast<float, float4>(data);
+
+            TestVectors.TestVectorization(span, VectorizedH, VectorizedZ, ref VectorizedP);
         }
 
         #endregion

@@ -5,6 +5,7 @@ namespace Wipeout
         Off,
         Managed,
         BurstOld,
-        BurstNew
+        BurstNew,
+        Vectorized
     }
 }
