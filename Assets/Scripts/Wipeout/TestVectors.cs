@@ -25,7 +25,7 @@ namespace Wipeout
         }
 
         // [BurstCompile(Debug = true)]
-        public static void TestVectorization(
+        public static void TestVectorization4(
             Span<float4> samples, Span<float4> h, Span<float4> z, ref int zState)
         {
             var taps = h.Length;
@@ -37,6 +37,35 @@ namespace Wipeout
                 z[zState] = z[zState + taps] = sample;
 
                 var filter = float4.zero;
+
+                for (var j = 0; j < taps; j++)
+                {
+                    filter += h[j] * z[zState + j];
+                }
+
+                --zState;
+
+                if (zState < 0)
+                {
+                    zState += taps;
+                }
+
+                sample = filter;
+            }
+        }
+
+        public static void TestVectorization2(
+            Span<float2> samples, Span<float> h, Span<float2> z, ref int zState)
+        {
+            var taps = h.Length;
+
+            for (var i = 0; i < samples.Length; i++)
+            {
+                ref var sample = ref samples[i];
+
+                z[zState] = z[zState + taps] = sample;
+
+                var filter = float2.zero;
 
                 for (var j = 0; j < taps; j++)
                 {

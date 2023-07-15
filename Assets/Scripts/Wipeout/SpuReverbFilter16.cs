@@ -132,7 +132,8 @@ namespace Wipeout
                 SpuReverbType.Managed => Managed,
                 SpuReverbType.BurstOld => BurstOld,
                 SpuReverbType.BurstNew => BurstNew,
-                SpuReverbType.Vectorized => Vectorized,
+                SpuReverbType.Vectorized2 => Vectorized2,
+                SpuReverbType.Vectorized4 => Vectorized4,
                 _ => throw new ArgumentOutOfRangeException()
             };
         }
@@ -281,13 +282,22 @@ namespace Wipeout
         #region Vectorized
 
         [SerializeField]
-        private float4[] VectorizedH;
+        private float[] VectorizedH2;
 
         [SerializeField]
-        private float4[] VectorizedZ;
+        private float2[] VectorizedZ2;
 
         [SerializeField]
-        private int VectorizedP;
+        private int VectorizedP2;
+
+        [SerializeField]
+        private float4[] VectorizedH4;
+
+        [SerializeField]
+        private float4[] VectorizedZ4;
+
+        [SerializeField]
+        private int VectorizedP4;
 
         private void VectorizedInit()
         {
@@ -296,6 +306,9 @@ namespace Wipeout
             var h = f.Coefficients;
 
             h = h.Where((_, t) => t % 2 == 1 || t == h.Length / 2).ToArray();
+
+            VectorizedH2 = h.ToArray();
+            VectorizedZ2 = new float2[VectorizedH2.Length * 2];
 
             var length = h.Length % 4;
 
@@ -309,17 +322,17 @@ namespace Wipeout
             h = VectorizedDuplicate(h, 2);
 
             var z = new float[h.Length * 2];
-            
-            VectorizedH = ConvertToFloat4Array(h);
-            VectorizedZ = ConvertToFloat4Array(z);
+
+            VectorizedH4 = ConvertToFloat4Array(h);
+            VectorizedZ4 = ConvertToFloat4Array(z);
         }
 
         private static float4[] ConvertToFloat4Array(float[] source)
         {
             Assert.AreEqual(0, source.Length % 4);
-            
+
             var length = source.Length / 4;
-            
+
             var result = new float4[length];
 
             for (var i = 0; i < length; i++)
@@ -328,7 +341,7 @@ namespace Wipeout
                 var y = source[i * 4 + 1];
                 var z = source[i * 4 + 2];
                 var w = source[i * 4 + 3];
-                
+
                 result[i] = new float4(x, y, z, w);
             }
 
@@ -352,13 +365,22 @@ namespace Wipeout
             return result;
         }
 
-        private void Vectorized(float[] data, int channels)
+        private void Vectorized2(float[] data, int channels)
+        {
+            Assert.AreEqual(0, data.Length % 2);
+
+            var span = MemoryMarshal.Cast<float, float2>(data);
+
+            TestVectors.TestVectorization2(span, VectorizedH2, VectorizedZ2, ref VectorizedP2);
+        }
+
+        private void Vectorized4(float[] data, int channels)
         {
             Assert.AreEqual(0, data.Length % 4);
-            
+
             var span = MemoryMarshal.Cast<float, float4>(data);
 
-            TestVectors.TestVectorization(span, VectorizedH, VectorizedZ, ref VectorizedP);
+            TestVectors.TestVectorization4(span, VectorizedH4, VectorizedZ4, ref VectorizedP4);
         }
 
         #endregion
