@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Runtime.InteropServices;
 using Unity.Burst;
+using Unity.Collections.LowLevel.Unsafe;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Assertions;
@@ -133,6 +134,7 @@ namespace Wipeout
                 SpuReverbType.BurstOld => BurstOld,
                 SpuReverbType.BurstNew => BurstNew,
                 SpuReverbType.Vectorized2 => Vectorized2,
+                SpuReverbType.Vectorized2Burst => Vectorized2Burst,
                 SpuReverbType.Vectorized4 => Vectorized4,
                 _ => throw new ArgumentOutOfRangeException()
             };
@@ -372,6 +374,18 @@ namespace Wipeout
             var span = MemoryMarshal.Cast<float, float2>(data);
 
             TestVectors.TestVectorization2(span, VectorizedH2, VectorizedZ2, ref VectorizedP2);
+        }
+
+        private unsafe void Vectorized2Burst(float[] data, int channels)
+        {
+            Assert.AreEqual(0, data.Length % 2);
+
+            fixed (float* samples = data)
+            fixed (float* h = VectorizedH2)
+            fixed (float2* z = VectorizedZ2)
+            {
+                TestVectors.TestVectorization2((float2*)samples, data.Length / 2, h, VectorizedH2.Length, z, ref VectorizedP2);
+            }
         }
 
         private void Vectorized4(float[] data, int channels)

@@ -288,11 +288,14 @@ MonoBehaviour:
   OutVol: 1.5
   Quality: 441
   Window: 0
-  ReverbType: 4
+  ReverbType: 5
   FiltersManaged: []
-  VectorizedH: []
-  VectorizedZ: []
-  VectorizedP: 0
+  VectorizedH2: []
+  VectorizedZ2: []
+  VectorizedP2: 0
+  VectorizedH4: []
+  VectorizedZ4: []
+  VectorizedP4: 0
 --- !u!1 &932456949
 GameObject:
   m_ObjectHideFlags: 0
