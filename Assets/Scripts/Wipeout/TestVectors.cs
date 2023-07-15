@@ -113,7 +113,7 @@ namespace Wipeout
 
         [BurstCompile(OptimizeFor = OptimizeFor.Performance)]
         public static unsafe void TestVectorization2(
-            float2* source, float2* target, int samples, float* h, int taps, float2* z, ref int state)
+            float2* source, float2* target, int samples, float2* h, int taps, float2* z, ref int state)
         {
             for (var i = 0; i < samples; i++)
             {

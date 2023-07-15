@@ -306,7 +306,8 @@ namespace Wipeout
 
             NewFilterState.Coefficients = h.ToArray();
             NewFilterState.Delays       = new float2[NewFilterState.Coefficients.Length * 2];
-
+           NewFilterState.Coefficients2 =   h.Select(s => new float2(s)).ToArray();
+            
             var length = h.Length % 4;
 
             Array.Resize(ref h, h.Length + length);
@@ -392,7 +393,7 @@ namespace Wipeout
 
             fixed (float* source = data)
             fixed (float* target = NewFilterState.Buffer)
-            fixed (float* h = NewFilterState.Coefficients)
+            fixed (float2* h = NewFilterState.Coefficients2)
             fixed (float2* z = NewFilterState.Delays)
             {
                 var samples = length / channels;
@@ -420,11 +421,12 @@ namespace Wipeout
     public sealed class NewFilterState
     {
         public float[] Coefficients;
+        public float2[] Coefficients2;
 
         public float2[] Delays;
 
         public float[] Buffer = new float[44100 * 2];
 
-        public int Position;
+        public int      Position;
     }
 }
