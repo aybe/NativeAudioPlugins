@@ -224,9 +224,8 @@ namespace Wipeout
 
         #region Vectorized
 
-        [FormerlySerializedAs("NewFilterState")]
         [SerializeField]
-        private ReverbFilterState ReverbFilterState = new();
+        private ReverbFilterState RFS = new();
 
         private void VectorizedInit()
         {
@@ -236,36 +235,8 @@ namespace Wipeout
 
             h = h.Where((_, t) => t % 2 == 1 || t == h.Length / 2).ToArray();
 
-            ReverbFilterState.Coefficients = h.Select(s => new float2(s)).ToArray();
-            ReverbFilterState.Delays       = new float2[ReverbFilterState.Coefficients.Length * 2];
-
-            var length = h.Length % 4;
-
-            Array.Resize(ref h, h.Length + length);
-
-            for (var i = 0; i < length; i++)
-            {
-                h[h.Length - length + i] = 0.0f;
-            }
-
-            h = VectorizedDuplicate(h, 2);
-        }
-
-        private static T[] VectorizedDuplicate<T>(T[] source, int repeat)
-        {
-            var length = source.Length;
-            var result = new T[length * repeat];
-            var offset = 0;
-
-            for (var i = 0; i < length; i++)
-            {
-                for (var j = 0; j < repeat; j++)
-                {
-                    result[offset++] = source[i];
-                }
-            }
-
-            return result;
+            RFS.Coefficients = h.Select(s => new float2(s)).ToArray();
+            RFS.Delays       = new float2[RFS.Coefficients.Length * 2];
         }
 
 
@@ -276,14 +247,14 @@ namespace Wipeout
             Assert.AreEqual(0, length % 2);
 
             fixed (float* source = data)
-            fixed (float* target = ReverbFilterState.Buffer)
-            fixed (float2* h = ReverbFilterState.Coefficients)
-            fixed (float2* z = ReverbFilterState.Delays)
+            fixed (float* target = RFS.Buffer)
+            fixed (float2* h = RFS.Coefficients)
+            fixed (float2* z = RFS.Delays)
             {
                 var samples = length / channels;
 
-                TestVectorization2((float2*)source, (float2*)target, samples, h, ReverbFilterState.Coefficients.Length, z,
-                    ref ReverbFilterState.Position);
+                TestVectorization2((float2*)source, (float2*)target, samples, h, RFS.Coefficients.Length, z,
+                    ref RFS.Position);
 
                 UnsafeUtility.MemCpy(source, target, length * sizeof(float));
             }
