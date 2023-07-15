@@ -5,7 +5,6 @@ using Unity.Collections.LowLevel.Unsafe;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Assertions;
-using UnityEngine.Serialization;
 using Wipeout.Formats.Audio.Extensions;
 using Wipeout.Formats.Audio.Sony;
 
@@ -65,17 +64,11 @@ namespace Wipeout
         [SerializeField]
         private SpuReverbType ReverbType;
 
-        private NativeFilter2 Filter2 = null!;
-
         private Filter[] Filters;
-
-        private NativeFilter[] NativeFilters;
 
         private SpuReverbFilter16Backup Reverb;
 
         private SpuReverbHandler ReverbHandler;
-
-        private NativeFilterState NativeFilterState;
 
         #endregion
 
@@ -93,44 +86,21 @@ namespace Wipeout
 
             Reverb = new SpuReverbFilter16Backup(SpuReverbPreset.Hall); // this is the EXACT preset they've used
 
-            NativeFilters = new[]
-            {
-                new NativeFilter(FilterState.CreateHalfBand()),
-                new NativeFilter(FilterState.CreateHalfBand())
-            };
-
-            Filter2 = new NativeFilter2(FilterState.CreateHalfBand(), 2);
-
             var f = FilterState.CreateHalfBand();
 
-            NativeFilterState = new NativeFilterState
-            {
-                Source       = UnsafeBufferUtility.Allocate(new float[44100 * 2]),
-                Target       = UnsafeBufferUtility.Allocate(new float[44100 * 2]),
-                Coefficients = UnsafeBufferUtility.Allocate(new[] { f.Coefficients, f.Coefficients }),
-                Delays       = UnsafeBufferUtility.Allocate(new[] { f.DelayLine, f.DelayLine }),
-                Taps         = UnsafeBufferUtility.Allocate(new[] { f.Taps, f.Taps }),
-                Positions    = UnsafeBufferUtility.Allocate(new[] { new[] { 0 }, new[] { 0 } })
-            };
+            var h = f.Coefficients;
 
-            VectorizedInit();
+            h = h.Where((_, t) => t % 2 == 1 || t == h.Length / 2).ToArray();
+
+            RFS.Coefficients = h.Select(s => new float2(s)).ToArray();
+            RFS.Delays       = new float2[RFS.Coefficients.Length * 2];
         }
 
         private void OnDisable()
         {
             if (!enabled)
             {
-                return;
             }
-
-            Filter2.Dispose();
-
-            foreach (var nativeFilter in NativeFilters)
-            {
-                nativeFilter.Dispose();
-            }
-
-            NativeFilterState.Dispose();
         }
 
         private void OnAudioFilterRead(float[] data, int channels)
@@ -226,18 +196,6 @@ namespace Wipeout
 
         [SerializeField]
         private ReverbFilterState RFS = new();
-
-        private void VectorizedInit()
-        {
-            var f = FilterState.CreateHalfBand();
-
-            var h = f.Coefficients;
-
-            h = h.Where((_, t) => t % 2 == 1 || t == h.Length / 2).ToArray();
-
-            RFS.Coefficients = h.Select(s => new float2(s)).ToArray();
-            RFS.Delays       = new float2[RFS.Coefficients.Length * 2];
-        }
 
 
         private unsafe void FilterBurst(float[] data, int channels)
