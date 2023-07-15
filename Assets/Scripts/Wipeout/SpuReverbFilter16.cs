@@ -6,6 +6,7 @@ using Unity.Collections.LowLevel.Unsafe;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Assertions;
+using UnityEngine.Serialization;
 using Wipeout.Formats.Audio.Extensions;
 using Wipeout.Formats.Audio.Sony;
 
@@ -135,6 +136,7 @@ namespace Wipeout
                 SpuReverbType.BurstNew => BurstNew,
                 SpuReverbType.Vectorized2 => Vectorized2,
                 SpuReverbType.Vectorized2Burst => Vectorized2Burst,
+                SpuReverbType.Vectorized2BurstMulti => Vectorized2BurstMulti,
                 SpuReverbType.Vectorized4 => Vectorized4,
                 _ => throw new ArgumentOutOfRangeException()
             };
@@ -290,6 +292,9 @@ namespace Wipeout
         private float2[] VectorizedZ2;
 
         [SerializeField]
+        private float[] FilterBuffer = new float[44100 * 2];
+
+        [SerializeField]
         private int VectorizedP2;
 
         [SerializeField]
@@ -385,6 +390,25 @@ namespace Wipeout
             fixed (float2* z = VectorizedZ2)
             {
                 TestVectors.TestVectorization2((float2*)samples, data.Length / 2, h, VectorizedH2.Length, z, ref VectorizedP2);
+            }
+        }
+
+        private unsafe void Vectorized2BurstMulti(float[] data, int channels)
+        {
+            var length = data.Length;
+            
+            Assert.AreEqual(0, length % 2);
+
+            fixed (float* source = data)
+            fixed (float* target = FilterBuffer)
+            fixed (float* h = VectorizedH2)
+            fixed (float2* z = VectorizedZ2)
+            {
+                var samples = length / channels;
+                
+                TestVectors.TestVectorization2((float2*)source, (float2*)target, samples, h, VectorizedH2.Length, z, ref VectorizedP2);
+                
+                UnsafeUtility.MemCpy(source, target, length * sizeof(float));
             }
         }
 

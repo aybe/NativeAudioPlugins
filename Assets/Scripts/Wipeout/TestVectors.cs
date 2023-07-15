@@ -110,5 +110,31 @@ namespace Wipeout
                 sample = filter;
             }
         }
+
+        [BurstCompile(OptimizeFor = OptimizeFor.Performance)]
+        public static unsafe void TestVectorization2(
+            float2* source, float2* target, int samples, float* h, int taps, float2* z, ref int state)
+        {
+            for (var i = 0; i < samples; i++)
+            {
+                z[state] = z[state + taps] = source[i];
+
+                var sample = float2.zero;
+
+                for (var j = 0; j < taps; j++)
+                {
+                    sample = math.mad(h[j], z[state + j], sample);
+                }
+
+                --state;
+
+                if (state < 0)
+                {
+                    state += taps;
+                }
+
+                target[i] = sample;
+            }
+        }
     }
 }
