@@ -4,11 +4,6 @@ namespace Wipeout
     {
         Off,
         Managed,
-        BurstOld,
-        BurstNew,
-        Vectorized2,
-        Vectorized2Burst,
-        Vectorized2BurstMulti,
-        Vectorized4,
+        Burst
     }
 }

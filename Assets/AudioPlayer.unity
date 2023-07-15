@@ -288,12 +288,8 @@ MonoBehaviour:
   OutVol: 1.5
   Quality: 441
   Window: 0
-  ReverbType: 6
-  FiltersManaged: []
-  VectorizedH4: []
-  VectorizedZ4: []
-  VectorizedP4: 0
-  NewFilterState:
+  ReverbType: 2
+  ReverbFilterState:
     Coefficients: []
     Delays: []
     Buffer:

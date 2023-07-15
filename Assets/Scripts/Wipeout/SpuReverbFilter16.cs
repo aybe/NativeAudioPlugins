@@ -1,11 +1,11 @@
 using System;
 using System.Linq;
-using System.Runtime.InteropServices;
 using Unity.Burst;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Assertions;
+using UnityEngine.Serialization;
 using Wipeout.Formats.Audio.Extensions;
 using Wipeout.Formats.Audio.Sony;
 
@@ -14,6 +14,32 @@ namespace Wipeout
     [BurstCompile]
     public class SpuReverbFilter16 : MonoBehaviour
     {
+        [BurstCompile(OptimizeFor = OptimizeFor.Performance)]
+        private static unsafe void TestVectorization2(
+            float2* source, float2* target, int samples, float2* h, int taps, float2* z, ref int state)
+        {
+            for (var i = 0; i < samples; i++)
+            {
+                z[state] = z[state + taps] = source[i];
+
+                var sample = float2.zero;
+
+                for (var j = 0; j < taps; j++)
+                {
+                    sample = math.mad(h[j], z[state + j], sample);
+                }
+
+                --state;
+
+                if (state < 0)
+                {
+                    state += taps;
+                }
+
+                target[i] = sample;
+            }
+        }
+
         #region Fields
 
         public bool ApplyFilter = true;
@@ -49,9 +75,6 @@ namespace Wipeout
 
         private SpuReverbHandler ReverbHandler;
 
-        [SerializeField]
-        private FilterState[] FiltersManaged;
-
         private NativeFilterState NativeFilterState;
 
         #endregion
@@ -77,14 +100,6 @@ namespace Wipeout
             };
 
             Filter2 = new NativeFilter2(FilterState.CreateHalfBand(), 2);
-
-            FiltersManaged = new[]
-            {
-                FilterState.CreateHalfBand(),
-                FilterState.CreateHalfBand()
-            };
-
-            // TODO
 
             var f = FilterState.CreateHalfBand();
 
@@ -127,16 +142,16 @@ namespace Wipeout
         {
             CreateFilters();
 
+            if (!Enum.IsDefined(typeof(SpuReverbType), ReverbType))
+            {
+                ReverbType = SpuReverbType.Off;
+            }
+
             ReverbHandler = ReverbType switch
             {
                 SpuReverbType.Off => null,
-                SpuReverbType.Managed => Managed,
-                SpuReverbType.BurstOld => BurstOld,
-                SpuReverbType.BurstNew => BurstNew,
-                SpuReverbType.Vectorized2 => Vectorized2,
-                SpuReverbType.Vectorized2Burst => Vectorized2Burst,
-                SpuReverbType.Vectorized2BurstMulti => Vectorized2BurstMulti,
-                SpuReverbType.Vectorized4 => Vectorized4,
+                SpuReverbType.Managed => FilterManaged,
+                SpuReverbType.Burst => FilterBurst,
                 _ => throw new ArgumentOutOfRangeException()
             };
         }
@@ -163,7 +178,7 @@ namespace Wipeout
             //Debug.Log($"{LowPass}, {Quality}, {Window}, {coefficients.Length}");
         }
 
-        private void Managed(float[] data, int channels)
+        private void FilterManaged(float[] data, int channels)
         {
             // we always do the processing to avoid delay in chain
 
@@ -205,96 +220,13 @@ namespace Wipeout
             }
         }
 
-        private unsafe void BurstOld(float[] data, int channels)
-        {
-            var sampleCount = data.Length / channels;
-
-            fixed (float* pData = data)
-            {
-                for (var i = 0; i < channels; i++)
-                {
-                    var fState = FiltersManaged[i];
-                    var hCount = fState.Coefficients.Length;
-                    var tCount = fState.Taps.Length;
-
-                    fixed (float* hArray = fState.Coefficients)
-                    fixed (float* zArray = fState.DelayLine)
-                    fixed (int* tArray = fState.Taps)
-                    fixed (int* zState = &fState.Position)
-                    {
-                        BurstOld(
-                            pData, i, channels, sampleCount, zState, hArray, hCount, zArray, tArray, tCount);
-                    }
-                }
-            }
-        }
-
-        [BurstCompile(OptimizeFor = OptimizeFor.Performance, DisableSafetyChecks = true)]
-        private static unsafe void BurstOld(
-            float* data, int dataChannel, int dataChannels,
-            int sampleCount, int* position,
-            float* hArray, int hCount, float* zArray, int* tArray, int tCount
-        )
-        {
-            var sample = &data[dataChannel];
-
-            for (var i = 0; i < sampleCount; i++)
-            {
-                var index1 = *position;
-                var index2 = *position + hCount;
-
-                zArray[index1] = zArray[index2] = *sample;
-
-                var filter = 0.0f;
-
-                for (var j = 0; j < tCount; j++)
-                {
-                    var tap = tArray[j];
-
-                    filter += hArray[tap] * zArray[index2 - tap];
-                }
-
-                index1++;
-
-                if (index1 == hCount)
-                {
-                    index1 = 0;
-                }
-
-                *position = index1;
-
-                *sample = filter;
-
-                sample += dataChannels;
-            }
-        }
-
-        private void BurstNew(float[] data, int channels)
-        {
-            ref var fs = ref NativeFilterState;
-
-            // Marshal.Copy(data, 0, fs.Source, data.Length);
-
-            Tests.ConvolveN(ref fs, data.Length / channels, channels);
-
-            // Marshal.Copy(fs.Target, data, 0, data.Length);
-        }
-
         #endregion
 
         #region Vectorized
 
+        [FormerlySerializedAs("NewFilterState")]
         [SerializeField]
-        private float4[] VectorizedH4;
-
-        [SerializeField]
-        private float4[] VectorizedZ4;
-
-        [SerializeField]
-        private int VectorizedP4;
-
-        [SerializeField]
-        private NewFilterState NewFilterState = new();
+        private ReverbFilterState ReverbFilterState = new();
 
         private void VectorizedInit()
         {
@@ -304,10 +236,9 @@ namespace Wipeout
 
             h = h.Where((_, t) => t % 2 == 1 || t == h.Length / 2).ToArray();
 
-            NewFilterState.Coefficients = h.ToArray();
-            NewFilterState.Delays       = new float2[NewFilterState.Coefficients.Length * 2];
-           NewFilterState.Coefficients2 =   h.Select(s => new float2(s)).ToArray();
-            
+            ReverbFilterState.Coefficients = h.Select(s => new float2(s)).ToArray();
+            ReverbFilterState.Delays       = new float2[ReverbFilterState.Coefficients.Length * 2];
+
             var length = h.Length % 4;
 
             Array.Resize(ref h, h.Length + length);
@@ -318,32 +249,6 @@ namespace Wipeout
             }
 
             h = VectorizedDuplicate(h, 2);
-
-            var z = new float[h.Length * 2];
-
-            VectorizedH4 = ConvertToFloat4Array(h);
-            VectorizedZ4 = ConvertToFloat4Array(z);
-        }
-
-        private static float4[] ConvertToFloat4Array(float[] source)
-        {
-            Assert.AreEqual(0, source.Length % 4);
-
-            var length = source.Length / 4;
-
-            var result = new float4[length];
-
-            for (var i = 0; i < length; i++)
-            {
-                var x = source[i * 4 + 0];
-                var y = source[i * 4 + 1];
-                var z = source[i * 4 + 2];
-                var w = source[i * 4 + 3];
-
-                result[i] = new float4(x, y, z, w);
-            }
-
-            return result;
         }
 
         private static T[] VectorizedDuplicate<T>(T[] source, int repeat)
@@ -363,70 +268,27 @@ namespace Wipeout
             return result;
         }
 
-        private void Vectorized2(float[] data, int channels)
-        {
-            Assert.AreEqual(0, data.Length % 2);
 
-            var span = MemoryMarshal.Cast<float, float2>(data);
-
-            TestVectors.TestVectorization2(span, NewFilterState.Coefficients, NewFilterState.Delays, ref NewFilterState.Position);
-        }
-
-        private unsafe void Vectorized2Burst(float[] data, int channels)
-        {
-            Assert.AreEqual(0, data.Length % 2);
-
-            fixed (float* samples = data)
-            fixed (float* h = NewFilterState.Coefficients)
-            fixed (float2* z = NewFilterState.Delays)
-            {
-                TestVectors.TestVectorization2((float2*)samples, data.Length / 2, h, NewFilterState.Coefficients.Length, z,
-                    ref NewFilterState.Position);
-            }
-        }
-
-        private unsafe void Vectorized2BurstMulti(float[] data, int channels)
+        private unsafe void FilterBurst(float[] data, int channels)
         {
             var length = data.Length;
 
             Assert.AreEqual(0, length % 2);
 
             fixed (float* source = data)
-            fixed (float* target = NewFilterState.Buffer)
-            fixed (float2* h = NewFilterState.Coefficients2)
-            fixed (float2* z = NewFilterState.Delays)
+            fixed (float* target = ReverbFilterState.Buffer)
+            fixed (float2* h = ReverbFilterState.Coefficients)
+            fixed (float2* z = ReverbFilterState.Delays)
             {
                 var samples = length / channels;
 
-                TestVectors.TestVectorization2((float2*)source, (float2*)target, samples, h, NewFilterState.Coefficients.Length, z,
-                    ref NewFilterState.Position);
+                TestVectorization2((float2*)source, (float2*)target, samples, h, ReverbFilterState.Coefficients.Length, z,
+                    ref ReverbFilterState.Position);
 
                 UnsafeUtility.MemCpy(source, target, length * sizeof(float));
             }
         }
 
-        private void Vectorized4(float[] data, int channels)
-        {
-            Assert.AreEqual(0, data.Length % 4);
-
-            var span = MemoryMarshal.Cast<float, float4>(data);
-
-            TestVectors.TestVectorization4(span, VectorizedH4, VectorizedZ4, ref VectorizedP4);
-        }
-
         #endregion
-    }
-
-    [Serializable]
-    public sealed class NewFilterState
-    {
-        public float[] Coefficients;
-        public float2[] Coefficients2;
-
-        public float2[] Delays;
-
-        public float[] Buffer = new float[44100 * 2];
-
-        public int      Position;
     }
 }
