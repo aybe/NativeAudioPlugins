@@ -3,9 +3,10 @@ using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using UnityEngine;
 
-namespace Wipeout
+namespace Wipeout.Formats.Audio.Sony
 {
-    internal unsafe struct NativeReverbBuffer : IDisposable
+    [Obsolete]
+    internal unsafe struct NativeReverbBufferF32 : IDisposable
         // for Burst
     {
         private readonly int Count;
@@ -16,7 +17,7 @@ namespace Wipeout
 
         public readonly ref float this[in int index] => ref Items[((Index + index) % Count + Count) % Count];
 
-        public NativeReverbBuffer(int length)
+        public NativeReverbBufferF32(int length)
         {
             if (!Mathf.IsPowerOfTwo(length))
             {

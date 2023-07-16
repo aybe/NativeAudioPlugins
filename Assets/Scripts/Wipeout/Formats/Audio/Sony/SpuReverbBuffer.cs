@@ -2,7 +2,7 @@
 
 namespace Wipeout.Formats.Audio.Sony
 {
-    internal sealed class SpuReverbBuffer<T>
+    public sealed class SpuReverbBuffer<T>
     {
         private readonly int Count;
 

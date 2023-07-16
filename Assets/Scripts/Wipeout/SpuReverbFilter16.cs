@@ -43,11 +43,13 @@ namespace Wipeout
         [SerializeField]
         private ReverbFilterState ReverbFilterState = new();
 
+        private BurstReverbBuffer BurstReverbBuffer;
+
+        private BurstReverbPreset BurstReverbPreset;
+
         private SpuReverbFilter16Backup Reverb;
 
-        private NativeReverbBuffer ReverbBuffer;
-
-        private NativeReverbPreset ReverbBurst = new(SpuReverbPreset.Hall);
+        private NativeReverbBufferF32 ReverbBuffer;
 
         private Filter[] ReverbFilters;
 
@@ -74,15 +76,22 @@ namespace Wipeout
             ReverbFilterState.Coefficients = h.Select(s => new float2(s)).ToArray();
             ReverbFilterState.Delays       = new float2[ReverbFilterState.Coefficients.Length * 2];
 
-            ReverbBuffer = new NativeReverbBuffer(524288);
+            ReverbBuffer = new NativeReverbBufferF32(524288);
+
+            BurstReverbBuffer = new BurstReverbBuffer(524288);
+            BurstReverbPreset = new BurstReverbPreset(SpuReverbPreset.Hall);
         }
 
         private void OnDisable()
         {
-            if (enabled)
+            if (enabled == false)
             {
-                ReverbBuffer.Dispose();
+                return;
             }
+
+            ReverbBuffer.Dispose();
+
+            BurstReverbBuffer.Dispose();
         }
 
         private void OnAudioFilterRead(float[] data, int channels)
@@ -170,6 +179,16 @@ namespace Wipeout
 
         private unsafe void FilterBurst(float[] data, int channels)
         {
+            static short Float2Short(in float value)
+            {
+                return (short)(value * 32767.0f);
+            }
+
+            static float Short2Float(in short value)
+            {
+                return value / 32768.0f;
+            }
+
             var length = data.Length;
 
             Assert.AreEqual(0, length % 2);
@@ -177,31 +196,33 @@ namespace Wipeout
             var state = ReverbFilterState;
 
             fixed (float* source = data)
-            fixed (float* filter = state.Buffer1)
-            fixed (float* reverb = state.Buffer2)
             fixed (float2* h = state.Coefficients)
             fixed (float2* z = state.Delays)
+            fixed (float2* filter2 = state.Buffer)
             {
                 var samples = length / channels;
                 var source2 = (float2*)source;
-                var filter2 = (float2*)filter;
-                var reverb2 = (float2*)reverb;
-
+                
+                // BUG BUG BUG TERRIBLE SOUND QUALITY
+                
                 BurstFilter(source2, filter2, samples, h, state.Coefficients.Length, z, ref state.Position);
-
-                // BurstReverb(filter2, reverb2, samples, ref ReverbBurst, ref ReverbBuffer);
-
+                
                 for (var i = 0; i < samples; i++)
                 {
-                    var l = (short)(filter2[i].x * 32767);
-                    var r = (short)(filter2[i].y * 32767);
-                    
-                    Reverb.Process(l, r, out var s, out var t);
+                    var l1 = (short)(filter2[i].x * 32767);
+                    var r1 = (short)(filter2[i].y * 32767);
 
-                    source2[i] = new float2(
-                        source2[i].x * 0.5f * MixDry + s / 32768.0f * 0.5f * MixWet,
-                        source2[i].y * 0.5f * MixDry + t / 32768.0f * 0.5f * MixWet
+                    BurstReverbPreset.Process(
+                        l1, r1, out var l2, out var r2, ref BurstReverbPreset, ref BurstReverbBuffer
                     );
+
+                    var l3 = l1 / 32768.0f * 0.5f * MixDry +
+                             l2 / 32768.0f * 0.5f * MixWet;
+
+                    var r3 = r1 / 32768.0f * 0.5f * MixDry +
+                             r2 / 32768.0f * 0.5f * MixWet;
+
+                    source2[i] = new float2(l3, r3) * OutVol;
                 }
             }
         }
@@ -212,7 +233,7 @@ namespace Wipeout
         [SuppressMessage("ReSharper", "ConvertToCompoundAssignment")]
         [SuppressMessage("Style", "IDE0054:Use compound assignment")]
         private static unsafe void BurstReverb(
-            float2* source, float2* target, int length, ref NativeReverbPreset preset, ref NativeReverbBuffer buffer)
+            float2* source, float2* target, int length, ref NativeReverbPreset preset, ref NativeReverbBufferF32 buffer)
         {
             #region Variables
 
