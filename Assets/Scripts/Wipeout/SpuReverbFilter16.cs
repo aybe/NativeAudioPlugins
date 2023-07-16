@@ -70,12 +70,15 @@ namespace Wipeout
 
             ReverbFilterState.Coefficients = h.Select(s => new float2(s)).ToArray();
             ReverbFilterState.Delays       = new float2[ReverbFilterState.Coefficients.Length * 2];
+
+            ReverbBuffer = new NativeReverbBuffer(524288);
         }
 
         private void OnDisable()
         {
-            if (!enabled)
+            if (enabled)
             {
+                ReverbBuffer.Dispose();
             }
         }
 
@@ -161,6 +164,8 @@ namespace Wipeout
                 data[offsetR] = r3 * OutVol;
             }
         }
+        
+        private NativeReverbBuffer ReverbBuffer;
 
         private unsafe void FilterBurst(float[] data, int channels)
         {
@@ -180,9 +185,15 @@ namespace Wipeout
                 var target2 = (float2*)target;
 
                 FilterBurstImpl(source2, target2, samples, h, state.Coefficients.Length, z, ref state.Position);
-
+                
                 NewMethod(source2, target2, samples);
             }
+        }
+
+        [BurstCompile]
+        private static unsafe void TestReverbBuffer(
+            float2* source, float2* target, int length, ref NativeReverbBuffer buffer)
+        {
         }
 
         private unsafe void NewMethod(float2* source, float2* target, int samples)
