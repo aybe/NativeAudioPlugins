@@ -43,7 +43,7 @@ namespace Wipeout
         [SerializeField]
         private ReverbFilterState ReverbFilterState = new();
 
-        private readonly NativeReverb ReverbBurst = new(SpuReverbPreset.Hall);
+        private readonly NativeReverbPreset ReverbBurst = new(SpuReverbPreset.Hall);
 
         private SpuReverbFilter16Backup Reverb;
 
@@ -195,40 +195,40 @@ namespace Wipeout
         [SuppressMessage("ReSharper", "InconsistentNaming")]
         [SuppressMessage("ReSharper", "IdentifierTypo")]
         private static unsafe void TestReverbBuffer(
-            float2* source, float2* target, int length, ref NativeReverb reverb, ref NativeReverbBuffer buffer)
+            float2* source, float2* target, int length, ref NativeReverbPreset preset, ref NativeReverbBuffer buffer)
         {
-            var dAPF1   = reverb.dAPF1;
-            var dAPF2   = reverb.dAPF2;
-            var vIIR    = reverb.vIIR;
-            var vCOMB1  = reverb.vCOMB1;
-            var vCOMB2  = reverb.vCOMB2;
-            var vCOMB3  = reverb.vCOMB3;
-            var vCOMB4  = reverb.vCOMB4;
-            var vWALL   = reverb.vWALL;
-            var vAPF1   = reverb.vAPF1;
-            var vAPF2   = reverb.vAPF2;
-            var mLSAME  = reverb.mLSAME;
-            var mRSAME  = reverb.mRSAME;
-            var mLCOMB1 = reverb.mLCOMB1;
-            var mRCOMB1 = reverb.mRCOMB1;
-            var mLCOMB2 = reverb.mLCOMB2;
-            var mRCOMB2 = reverb.mRCOMB2;
-            var dLSAME  = reverb.dLSAME;
-            var dRSAME  = reverb.dRSAME;
-            var mLDIFF  = reverb.mLDIFF;
-            var mRDIFF  = reverb.mRDIFF;
-            var mLCOMB3 = reverb.mLCOMB3;
-            var mRCOMB3 = reverb.mRCOMB3;
-            var mLCOMB4 = reverb.mLCOMB4;
-            var mRCOMB4 = reverb.mRCOMB4;
-            var dLDIFF  = reverb.dLDIFF;
-            var dRDIFF  = reverb.dRDIFF;
-            var mLAPF1  = reverb.mLAPF1;
-            var mRAPF1  = reverb.mRAPF1;
-            var mLAPF2  = reverb.mLAPF2;
-            var mRAPF2  = reverb.mRAPF2;
-            var vLIN    = reverb.vLIN;
-            var vRIN    = reverb.vRIN;
+            var dAPF1   = preset.dAPF1;
+            var dAPF2   = preset.dAPF2;
+            var vIIR    = preset.vIIR;
+            var vCOMB1  = preset.vCOMB1;
+            var vCOMB2  = preset.vCOMB2;
+            var vCOMB3  = preset.vCOMB3;
+            var vCOMB4  = preset.vCOMB4;
+            var vWALL   = preset.vWALL;
+            var vAPF1   = preset.vAPF1;
+            var vAPF2   = preset.vAPF2;
+            var mLSAME  = preset.mLSAME;
+            var mRSAME  = preset.mRSAME;
+            var mLCOMB1 = preset.mLCOMB1;
+            var mRCOMB1 = preset.mRCOMB1;
+            var mLCOMB2 = preset.mLCOMB2;
+            var mRCOMB2 = preset.mRCOMB2;
+            var dLSAME  = preset.dLSAME;
+            var dRSAME  = preset.dRSAME;
+            var mLDIFF  = preset.mLDIFF;
+            var mRDIFF  = preset.mRDIFF;
+            var mLCOMB3 = preset.mLCOMB3;
+            var mRCOMB3 = preset.mRCOMB3;
+            var mLCOMB4 = preset.mLCOMB4;
+            var mRCOMB4 = preset.mRCOMB4;
+            var dLDIFF  = preset.dLDIFF;
+            var dRDIFF  = preset.dRDIFF;
+            var mLAPF1  = preset.mLAPF1;
+            var mRAPF1  = preset.mRAPF1;
+            var mLAPF2  = preset.mLAPF2;
+            var mRAPF2  = preset.mRAPF2;
+            var vLIN    = preset.vLIN;
+            var vRIN    = preset.vRIN;
 
             for (var i = 0; i < length; i++)
             {

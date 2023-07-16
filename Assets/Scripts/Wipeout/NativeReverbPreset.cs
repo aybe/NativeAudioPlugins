@@ -9,9 +9,9 @@ namespace Wipeout
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     [SuppressMessage("ReSharper", "IdentifierTypo")]
     [NoReorder]
-    public readonly struct NativeReverb
+    public readonly struct NativeReverbPreset
     {
-        public NativeReverb(SpuReverbPreset reverb)
+        public NativeReverbPreset(SpuReverbPreset reverb)
         {
             // note that this works "by accident" for 44100Hz
             // any other sample rate needs an adjusted preset
