@@ -192,23 +192,24 @@ namespace Wipeout
 
         [BurstCompile]
         private static unsafe void TestReverbBuffer(
-            float2* source, float2* target, int length, ref NativeReverbBuffer buffer)
+            float2* source, float2* target, int length, ref NativeReverbBuffer buffer, ref NativeReverb reverb)
         {
         }
 
+        
         private unsafe void NewMethod(float2* source, float2* target, int samples)
         {
-            for (var i = 0; i < samples; i++)
-            {
-                var sample = target[i];
+            //for (var i = 0; i < samples; i++)
+            //{
+            //    var sample = target[i];
 
-                ReverbBurst.Process(sample.x, sample.y, out var l, out var r);
+            //    ReverbBurst.Process(sample.x, sample.y, out var l, out var r);
 
-                var x = source[i].x * 0.5f * MixDry + l * 0.5f * MixWet;
-                var y = source[i].y * 0.5f * MixDry + r * 0.5f * MixWet;
+            //    var x = source[i].x * 0.5f * MixDry + l * 0.5f * MixWet;
+            //    var y = source[i].y * 0.5f * MixDry + r * 0.5f * MixWet;
 
-                source[i] = new float2(x, y);
-            }
+            //    source[i] = new float2(x, y);
+            //}
         }
 
         [BurstCompile(OptimizeFor = OptimizeFor.Performance)]

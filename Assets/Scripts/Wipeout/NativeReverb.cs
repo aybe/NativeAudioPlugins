@@ -9,7 +9,7 @@ namespace Wipeout
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     [SuppressMessage("ReSharper", "IdentifierTypo")]
     [NoReorder]
-    public sealed class NativeReverb
+    public readonly struct NativeReverb
     {
         public NativeReverb(SpuReverbPreset reverb)
         {
@@ -53,6 +53,7 @@ namespace Wipeout
             mRAPF2  = hop * reverb.mRAPF2;
             vLIN    = vol * reverb.vLIN;
             vRIN    = vol * reverb.vRIN;
+         
         }
 
         private readonly int   dAPF1;
@@ -87,65 +88,65 @@ namespace Wipeout
         private readonly int   mRAPF2;
         private readonly float vLIN;
         private readonly float vRIN;
-        private const    float vLOUT = 1.0f;
+       // private const    float vLOUT = 1.0f;
         private const    float vROUT = 1.0f;
 
-        private readonly SpuReverbBuffer<float> Buffer = new(524288);
+        //private readonly SpuReverbBuffer<float> Buffer;// = new(524288);
 
-        [SuppressMessage("ReSharper", "ConvertToCompoundAssignment")]
-        [SuppressMessage("Style", "IDE0054:Use compound assignment")]
-        public void Process(in float sourceL, in float sourceR, out float targetL, out float targetR)
-        {
-            const int div = 0x8000;
+        //[SuppressMessage("ReSharper", "ConvertToCompoundAssignment")]
+        //[SuppressMessage("Style", "IDE0054:Use compound assignment")]
+        //public void Process(in float sourceL, in float sourceR, out float targetL, out float targetR)
+        //{
+        //    const int div = 0x8000;
 
-            var LIn = vLIN * sourceL /* / div*/;
-            var RIn = vRIN * sourceR /* / div*/;
+        //    var LIn = vLIN * sourceL /* / div*/;
+        //    var RIn = vRIN * sourceR /* / div*/;
 
-            var L1 = Buffer[mLSAME - 1];
-            var R1 = Buffer[mRSAME - 1];
+        //    var L1 = Buffer[mLSAME - 1];
+        //    var R1 = Buffer[mRSAME - 1];
 
-            Buffer[mLSAME] = Clamp((LIn + Buffer[dLSAME] * vWALL /* / div*/ - L1) * vIIR /* / div*/ + L1);
-            Buffer[mRSAME] = Clamp((RIn + Buffer[dRSAME] * vWALL /* / div*/ - R1) * vIIR /* / div*/ + R1);
+        //    Buffer[mLSAME] = Clamp((LIn + Buffer[dLSAME] * vWALL /* / div*/ - L1) * vIIR /* / div*/ + L1);
+        //    Buffer[mRSAME] = Clamp((RIn + Buffer[dRSAME] * vWALL /* / div*/ - R1) * vIIR /* / div*/ + R1);
 
-            var L2 = Buffer[mLDIFF - 1];
-            var R2 = Buffer[mRDIFF - 1];
+        //    var L2 = Buffer[mLDIFF - 1];
+        //    var R2 = Buffer[mRDIFF - 1];
 
-            Buffer[mLDIFF] = Clamp((LIn + Buffer[dRDIFF] * vWALL /* / div*/ - L2) * vIIR /* / div*/ + L2);
-            Buffer[mRDIFF] = Clamp((RIn + Buffer[dLDIFF] * vWALL /* / div*/ - R2) * vIIR /* / div*/ + R2);
+        //    Buffer[mLDIFF] = Clamp((LIn + Buffer[dRDIFF] * vWALL /* / div*/ - L2) * vIIR /* / div*/ + L2);
+        //    Buffer[mRDIFF] = Clamp((RIn + Buffer[dLDIFF] * vWALL /* / div*/ - R2) * vIIR /* / div*/ + R2);
 
-            var LOut = vCOMB1 * Buffer[mLCOMB1] /* / div*/ +
-                       vCOMB2 * Buffer[mLCOMB2] /* / div*/ +
-                       vCOMB3 * Buffer[mLCOMB3] /* / div*/ +
-                       vCOMB4 * Buffer[mLCOMB4] /* / div*/;
+        //    var LOut = vCOMB1 * Buffer[mLCOMB1] /* / div*/ +
+        //               vCOMB2 * Buffer[mLCOMB2] /* / div*/ +
+        //               vCOMB3 * Buffer[mLCOMB3] /* / div*/ +
+        //               vCOMB4 * Buffer[mLCOMB4] /* / div*/;
 
-            var ROut = vCOMB1 * Buffer[mRCOMB1] /* / div*/ +
-                       vCOMB2 * Buffer[mRCOMB2] /* / div*/ +
-                       vCOMB3 * Buffer[mRCOMB3] /* / div*/ +
-                       vCOMB4 * Buffer[mRCOMB4] /* / div*/;
+        //    var ROut = vCOMB1 * Buffer[mRCOMB1] /* / div*/ +
+        //               vCOMB2 * Buffer[mRCOMB2] /* / div*/ +
+        //               vCOMB3 * Buffer[mRCOMB3] /* / div*/ +
+        //               vCOMB4 * Buffer[mRCOMB4] /* / div*/;
 
-            LOut = LOut - vAPF1 * Buffer[mLAPF1 - dAPF1] /* / div*/;
-            ROut = ROut - vAPF1 * Buffer[mRAPF1 - dAPF1] /* / div*/;
+        //    LOut = LOut - vAPF1 * Buffer[mLAPF1 - dAPF1] /* / div*/;
+        //    ROut = ROut - vAPF1 * Buffer[mRAPF1 - dAPF1] /* / div*/;
 
-            Buffer[mLAPF1] = Clamp(LOut);
-            Buffer[mRAPF1] = Clamp(ROut);
+        //    Buffer[mLAPF1] = Clamp(LOut);
+        //    Buffer[mRAPF1] = Clamp(ROut);
 
-            LOut = LOut * vAPF1 /* / div*/ + Buffer[mLAPF1 - dAPF1];
-            ROut = ROut * vAPF1 /* / div*/ + Buffer[mRAPF1 - dAPF1];
+        //    LOut = LOut * vAPF1 /* / div*/ + Buffer[mLAPF1 - dAPF1];
+        //    ROut = ROut * vAPF1 /* / div*/ + Buffer[mRAPF1 - dAPF1];
 
-            LOut = LOut - vAPF2 * Buffer[mLAPF2 - dAPF2] /* / div*/;
-            ROut = ROut - vAPF2 * Buffer[mRAPF2 - dAPF2] /* / div*/;
+        //    LOut = LOut - vAPF2 * Buffer[mLAPF2 - dAPF2] /* / div*/;
+        //    ROut = ROut - vAPF2 * Buffer[mRAPF2 - dAPF2] /* / div*/;
 
-            Buffer[mLAPF2] = Clamp(LOut);
-            Buffer[mRAPF2] = Clamp(ROut);
+        //    Buffer[mLAPF2] = Clamp(LOut);
+        //    Buffer[mRAPF2] = Clamp(ROut);
 
-            LOut = LOut * vAPF2 /* / div*/ + Buffer[mLAPF2 - dAPF2];
-            ROut = ROut * vAPF2 /* / div*/ + Buffer[mRAPF2 - dAPF2];
+        //    LOut = LOut * vAPF2 /* / div*/ + Buffer[mLAPF2 - dAPF2];
+        //    ROut = ROut * vAPF2 /* / div*/ + Buffer[mRAPF2 - dAPF2];
 
-            targetL = Clamp(LOut /* * vLOUT*/ /* / div*/);
-            targetR = Clamp(ROut /* * vROUT*/ /* / div*/);
+        //    targetL = Clamp(LOut /* * vLOUT*/ /* / div*/);
+        //    targetR = Clamp(ROut /* * vROUT*/ /* / div*/);
 
-            Buffer.Advance();
-        }
+        //    Buffer.Advance();
+        //}
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static float Clamp(in float value)
