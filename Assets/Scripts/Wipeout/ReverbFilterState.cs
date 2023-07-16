@@ -10,7 +10,9 @@ namespace Wipeout
 
         public float2[] Delays;
 
-        public float[] Buffer = new float[44100 * 2];
+        public float[] Buffer1 = new float[44100 * 2];
+
+        public float[] Buffer2 = new float[44100 * 2];
 
         public int Position;
     }

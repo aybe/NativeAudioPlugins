@@ -14,7 +14,7 @@ namespace Wipeout
 
         private int Index;
 
-        public readonly ref float this[in int index] => ref Items[(Index + index) & Count];
+        public readonly ref float this[in int index] => ref Items[((Index + index) % Count + Count) % Count];
 
         public NativeReverbBuffer(int length)
         {
@@ -23,20 +23,20 @@ namespace Wipeout
                 throw new ArgumentOutOfRangeException(nameof(length), length, "Length must be a power of two.");
             }
 
-            var count = length * sizeof(float);
-            var align = UnsafeUtility.AlignOf<float>();
-            var items = (float*)UnsafeUtility.Malloc(count, align, Allocator.Persistent);
+            var size = length * sizeof(float);
+            var pack = UnsafeUtility.AlignOf<float>();
+            var data = (float*)UnsafeUtility.Malloc(size, pack, Allocator.Persistent);
 
-            UnsafeUtility.MemClear(items, length);
+            UnsafeUtility.MemClear(data, length);
 
-            Count = length - 1;
-            Items = items;
+            Count = length;
+            Items = data;
             Index = 0;
         }
 
-        public void Advance()
+        public void Advance(int count = 2)
         {
-            Index = (Index + 2) & Count;
+            Index = (Index + count) % Count;
         }
 
         public readonly void Dispose()

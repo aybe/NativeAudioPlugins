@@ -2,7 +2,6 @@ using System;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using Unity.Burst;
-using Unity.Collections.LowLevel.Unsafe;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Assertions;
@@ -178,36 +177,32 @@ namespace Wipeout
             var state = ReverbFilterState;
 
             fixed (float* source = data)
-            fixed (float* target = state.Buffer)
+            fixed (float* filter = state.Buffer1)
+            fixed (float* reverb = state.Buffer2)
             fixed (float2* h = state.Coefficients)
             fixed (float2* z = state.Delays)
             {
                 var samples = length / channels;
                 var source2 = (float2*)source;
-                var target2 = (float2*)target;
+                var filter2 = (float2*)filter;
+                var reverb2 = (float2*)reverb;
 
-                if (ReverbFilterEnabled)
+                BurstFilter(source2, filter2, samples, h, state.Coefficients.Length, z, ref state.Position);
+
+                // BurstReverb(filter2, reverb2, samples, ref ReverbBurst, ref ReverbBuffer);
+
+                for (var i = 0; i < samples; i++)
                 {
-                    FilterBurstImpl(source2, target2, samples, h, state.Coefficients.Length, z, ref state.Position);
+                    var l = (short)(filter2[i].x * 32767);
+                    var r = (short)(filter2[i].y * 32767);
                     
-                    if (!ReverbProcessEnabled)
-                    {
-                        UnsafeUtility.MemCpy(source2, target2, samples * channels * sizeof(float));
-                    }
-                }
-                //else
-                //{
-                //    UnsafeUtility.MemCpy(target2, source2, samples * sizeof(float));
-                //}
+                    Reverb.Process(l, r, out var s, out var t);
 
-                //if (ReverbProcessEnabled)
-                //{
-                //    TestReverbBuffer(target2, source2, samples, MixDry, MixWet, ref ReverbBurst, ref ReverbBuffer);
-                //}
-                //else
-                //{
-                //    UnsafeUtility.MemCpy(source2, target2, samples * sizeof(float));
-                //}
+                    source2[i] = new float2(
+                        source2[i].x * 0.5f * MixDry + s / 32768.0f * 0.5f * MixWet,
+                        source2[i].y * 0.5f * MixDry + t / 32768.0f * 0.5f * MixWet
+                    );
+                }
             }
         }
 
@@ -216,8 +211,8 @@ namespace Wipeout
         [SuppressMessage("ReSharper", "InconsistentNaming")]
         [SuppressMessage("ReSharper", "ConvertToCompoundAssignment")]
         [SuppressMessage("Style", "IDE0054:Use compound assignment")]
-        private static unsafe void TestReverbBuffer(
-            float2* source, float2* target, int length, float dry, float wet, ref NativeReverbPreset preset, ref NativeReverbBuffer buffer)
+        private static unsafe void BurstReverb(
+            float2* source, float2* target, int length, ref NativeReverbPreset preset, ref NativeReverbBuffer buffer)
         {
             #region Variables
 
@@ -303,9 +298,7 @@ namespace Wipeout
                 LOut = LOut * vAPF2 + buffer[mLAPF2 - dAPF2];
                 ROut = ROut * vAPF2 + buffer[mRAPF2 - dAPF2];
 
-                var tgt = new float2(Clamp(LOut), Clamp(ROut));
-
-                target[i] = src * 0.5f * wet + tgt * 0.5f * dry;
+                target[i] = new float2(Clamp(LOut), Clamp(ROut));
 
                 buffer.Advance();
             }
@@ -323,7 +316,7 @@ namespace Wipeout
         }
 
         [BurstCompile(OptimizeFor = OptimizeFor.Performance)]
-        private static unsafe void FilterBurstImpl(
+        private static unsafe void BurstFilter(
             float2* source, float2* target, int samples, float2* h, int taps, float2* z, ref int state)
         {
             for (var i = 0; i < samples; i++)

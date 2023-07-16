@@ -1,4 +1,5 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿using System;
+using System.Diagnostics.CodeAnalysis;
 using JetBrains.Annotations;
 using Wipeout.Formats.Audio.Sony;
 
@@ -9,6 +10,21 @@ namespace Wipeout
     [NoReorder]
     public readonly struct NativeReverbPreset
     {
+        private static double GetConstant(double sourceRate, double targetRate, short value)
+        {
+            var val = value / 32768.0d;
+
+            var dt1 = 1.0d / sourceRate;
+            var fc1 = 1.0d / (2.0d * MathF.PI * (dt1 / val - dt1));
+
+            var dt2 = 1.0d / targetRate;
+            var fc2 = 1.0d / (2.0d * MathF.PI * fc1);
+
+            var iir = dt2 / (fc2 + dt2);
+
+            return iir;
+        }
+
         public NativeReverbPreset(SpuReverbPreset reverb)
         {
             // note that this works "by accident" for 44100Hz
