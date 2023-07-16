@@ -43,7 +43,7 @@ namespace Wipeout
         [SerializeField]
         private ReverbFilterState ReverbFilterState = new();
 
-        private readonly NativeReverbPreset ReverbBurst = new(SpuReverbPreset.Hall);
+        private NativeReverbPreset ReverbBurst = new(SpuReverbPreset.Hall);
 
         private SpuReverbFilter16Backup Reverb;
 
@@ -187,7 +187,9 @@ namespace Wipeout
 
                 FilterBurstImpl(source2, target2, samples, h, state.Coefficients.Length, z, ref state.Position);
 
-                NewMethod(source2, target2, samples);
+                // NewMethod(source2, target2, samples);
+
+                TestReverbBuffer(target2, source2, samples, MixDry, MixWet, ref ReverbBurst, ref ReverbBuffer);
             }
         }
 
@@ -195,7 +197,7 @@ namespace Wipeout
         [SuppressMessage("ReSharper", "InconsistentNaming")]
         [SuppressMessage("ReSharper", "IdentifierTypo")]
         private static unsafe void TestReverbBuffer(
-            float2* source, float2* target, int length, ref NativeReverbPreset preset, ref NativeReverbBuffer buffer)
+            float2* source, float2* target, int length, float dry, float wet, ref NativeReverbPreset preset, ref NativeReverbBuffer buffer)
         {
             var dAPF1   = preset.dAPF1;
             var dAPF2   = preset.dAPF2;
@@ -232,8 +234,10 @@ namespace Wipeout
 
             for (var i = 0; i < length; i++)
             {
-                var LIn = vLIN * source[i].x;
-                var RIn = vRIN * source[i].y;
+                var src = source[i];
+                
+                var LIn    = vLIN * src.x;
+                var RIn    = vRIN * src.y;
 
                 var L1 = buffer[mLSAME - 1];
                 var R1 = buffer[mRSAME - 1];
@@ -268,8 +272,9 @@ namespace Wipeout
                 LOut = LOut * vAPF2 + buffer[mLAPF2 - dAPF2];
                 ROut = ROut * vAPF2 + buffer[mRAPF2 - dAPF2];
 
-                target[i].x = Clamp(LOut);
-                target[i].y = Clamp(ROut);
+                var tgt = new float2(Clamp(LOut), Clamp(ROut));
+
+                target[i] = src * 0.5f * dry + tgt * 0.5f * wet;
 
                 buffer.Advance();
             }
