@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using Unity.Burst;
 using Unity.Mathematics;
@@ -45,6 +46,8 @@ namespace Wipeout
         private readonly NativeReverb ReverbBurst = new(SpuReverbPreset.Hall);
 
         private SpuReverbFilter16Backup Reverb;
+
+        private NativeReverbBuffer ReverbBuffer;
 
         private Filter[] ReverbFilters;
 
@@ -164,8 +167,6 @@ namespace Wipeout
                 data[offsetR] = r3 * OutVol;
             }
         }
-        
-        private NativeReverbBuffer ReverbBuffer;
 
         private unsafe void FilterBurst(float[] data, int channels)
         {
@@ -185,18 +186,106 @@ namespace Wipeout
                 var target2 = (float2*)target;
 
                 FilterBurstImpl(source2, target2, samples, h, state.Coefficients.Length, z, ref state.Position);
-                
+
                 NewMethod(source2, target2, samples);
             }
         }
 
         [BurstCompile]
+        [SuppressMessage("ReSharper", "InconsistentNaming")]
+        [SuppressMessage("ReSharper", "IdentifierTypo")]
         private static unsafe void TestReverbBuffer(
-            float2* source, float2* target, int length, ref NativeReverbBuffer buffer, ref NativeReverb reverb)
+            float2* source, float2* target, int length, ref NativeReverb reverb, ref NativeReverbBuffer buffer)
         {
+            var dAPF1   = reverb.dAPF1;
+            var dAPF2   = reverb.dAPF2;
+            var vIIR    = reverb.vIIR;
+            var vCOMB1  = reverb.vCOMB1;
+            var vCOMB2  = reverb.vCOMB2;
+            var vCOMB3  = reverb.vCOMB3;
+            var vCOMB4  = reverb.vCOMB4;
+            var vWALL   = reverb.vWALL;
+            var vAPF1   = reverb.vAPF1;
+            var vAPF2   = reverb.vAPF2;
+            var mLSAME  = reverb.mLSAME;
+            var mRSAME  = reverb.mRSAME;
+            var mLCOMB1 = reverb.mLCOMB1;
+            var mRCOMB1 = reverb.mRCOMB1;
+            var mLCOMB2 = reverb.mLCOMB2;
+            var mRCOMB2 = reverb.mRCOMB2;
+            var dLSAME  = reverb.dLSAME;
+            var dRSAME  = reverb.dRSAME;
+            var mLDIFF  = reverb.mLDIFF;
+            var mRDIFF  = reverb.mRDIFF;
+            var mLCOMB3 = reverb.mLCOMB3;
+            var mRCOMB3 = reverb.mRCOMB3;
+            var mLCOMB4 = reverb.mLCOMB4;
+            var mRCOMB4 = reverb.mRCOMB4;
+            var dLDIFF  = reverb.dLDIFF;
+            var dRDIFF  = reverb.dRDIFF;
+            var mLAPF1  = reverb.mLAPF1;
+            var mRAPF1  = reverb.mRAPF1;
+            var mLAPF2  = reverb.mLAPF2;
+            var mRAPF2  = reverb.mRAPF2;
+            var vLIN    = reverb.vLIN;
+            var vRIN    = reverb.vRIN;
+
+            for (var i = 0; i < length; i++)
+            {
+                var LIn = vLIN * source[i].x;
+                var RIn = vRIN * source[i].y;
+
+                var L1 = buffer[mLSAME - 1];
+                var R1 = buffer[mRSAME - 1];
+
+                buffer[mLSAME] = Clamp((LIn + buffer[dLSAME] * vWALL - L1) * vIIR + L1);
+                buffer[mRSAME] = Clamp((RIn + buffer[dRSAME] * vWALL - R1) * vIIR + R1);
+
+                var L2 = buffer[mLDIFF - 1];
+                var R2 = buffer[mRDIFF - 1];
+
+                buffer[mLDIFF] = Clamp((LIn + buffer[dRDIFF] * vWALL - L2) * vIIR + L2);
+                buffer[mRDIFF] = Clamp((RIn + buffer[dLDIFF] * vWALL - R2) * vIIR + R2);
+
+                var LOut = vCOMB1 * buffer[mLCOMB1] + vCOMB2 * buffer[mLCOMB2] + vCOMB3 * buffer[mLCOMB3] + vCOMB4 * buffer[mLCOMB4];
+                var ROut = vCOMB1 * buffer[mRCOMB1] + vCOMB2 * buffer[mRCOMB2] + vCOMB3 * buffer[mRCOMB3] + vCOMB4 * buffer[mRCOMB4];
+
+                LOut = LOut - vAPF1 * buffer[mLAPF1 - dAPF1];
+                ROut = ROut - vAPF1 * buffer[mRAPF1 - dAPF1];
+
+                buffer[mLAPF1] = Clamp(LOut);
+                buffer[mRAPF1] = Clamp(ROut);
+
+                LOut = LOut * vAPF1 + buffer[mLAPF1 - dAPF1];
+                ROut = ROut * vAPF1 + buffer[mRAPF1 - dAPF1];
+
+                LOut = LOut - vAPF2 * buffer[mLAPF2 - dAPF2];
+                ROut = ROut - vAPF2 * buffer[mRAPF2 - dAPF2];
+
+                buffer[mLAPF2] = Clamp(LOut);
+                buffer[mRAPF2] = Clamp(ROut);
+
+                LOut = LOut * vAPF2 + buffer[mLAPF2 - dAPF2];
+                ROut = ROut * vAPF2 + buffer[mRAPF2 - dAPF2];
+
+                target[i].x = Clamp(LOut);
+                target[i].y = Clamp(ROut);
+
+                buffer.Advance();
+            }
         }
 
-        
+        [BurstCompile(OptimizeFor = OptimizeFor.Performance)]
+        private static float Clamp(in float value)
+        {
+            const float minValue = -1.0f;
+            const float maxValue = +1.0f;
+
+            var clamp = math.clamp(value, minValue, maxValue);
+
+            return clamp;
+        }
+
         private unsafe void NewMethod(float2* source, float2* target, int samples)
         {
             //for (var i = 0; i < samples; i++)
