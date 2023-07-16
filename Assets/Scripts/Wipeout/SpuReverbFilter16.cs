@@ -1,7 +1,6 @@
 using System;
 using System.Linq;
 using Unity.Burst;
-using Unity.Collections.LowLevel.Unsafe;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Assertions;
@@ -42,6 +41,8 @@ namespace Wipeout
         [Space]
         [SerializeField]
         private ReverbFilterState ReverbFilterState = new();
+
+        private readonly SpuReverbFilter16Backup2 ReverbBurst = new(SpuReverbPreset.Hall);
 
         private SpuReverbFilter16Backup Reverb;
 
@@ -176,10 +177,20 @@ namespace Wipeout
             fixed (float2* z = state.Delays)
             {
                 var samples = length / channels;
+                var source2 = (float2*)source;
+                var target2 = (float2*)target;
 
-                FilterBurstImpl((float2*)source, (float2*)target, samples, h, state.Coefficients.Length, z, ref state.Position);
+                FilterBurstImpl(source2, target2, samples, h, state.Coefficients.Length, z, ref state.Position);
 
-                UnsafeUtility.MemCpy(source, target, length * sizeof(float));
+                for (var i = 0; i < samples; i++)
+                {
+                    var float2 = target2[i];
+                    ReverbBurst.Process(float2.x, float2.y, out var l, out var r);
+                    source2[i] = new float2(
+                        source2[i].x * 0.5f * MixDry + l * 0.5f * MixWet,
+                        source2[i].y * 0.5f * MixDry + r * 0.5f * MixWet
+                    );
+                }
             }
         }
 
