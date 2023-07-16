@@ -13,41 +13,6 @@ namespace Wipeout
     [BurstCompile]
     public class SpuReverbFilter16 : MonoBehaviour
     {
-        [BurstCompile(OptimizeFor = OptimizeFor.Performance)]
-        private static unsafe void TestVectorization2(
-            float2* source, float2* target, int samples, float2* h, int taps, float2* z, ref int state)
-        {
-            for (var i = 0; i < samples; i++)
-            {
-                z[state] = z[state + taps] = source[i];
-
-                var sample = float2.zero;
-
-                for (var j = 0; j < taps; j++)
-                {
-                    sample = math.mad(h[j], z[state + j], sample);
-                }
-
-                --state;
-
-                if (state < 0)
-                {
-                    state += taps;
-                }
-
-                target[i] = sample;
-            }
-        }
-
-        #region Fields
-
-        public bool ApplyFilter = true;
-
-        public bool ApplyReverb = true;
-
-        [Range(441, 21609)]
-        public float LowPass = 11025;
-
         [Range(0.0f, 1.0f)]
         public float MixDry = 1.0f;
 
@@ -57,22 +22,32 @@ namespace Wipeout
         [Range(0.0f, 2.0f)]
         public float OutVol = 1.5f;
 
-        public SpuReverbQuality Quality = SpuReverbQuality.Highest;
-
-        public FilterWindow Window = FilterWindow.Blackman;
-
+        [Space]
         [SerializeField]
         private SpuReverbType ReverbType;
 
-        private Filter[] Filters;
+        [Space]
+        public bool ReverbProcessEnabled = true;
+
+        public bool ReverbFilterEnabled = true;
+
+        [Space]
+        [Range(441, 21609)]
+        public float ReverbLowPass = 11025;
+
+        public SpuReverbQuality ReverbQuality = SpuReverbQuality.Highest;
+
+        public FilterWindow ReverbWindow = FilterWindow.Blackman;
+
+        [Space]
+        [SerializeField]
+        private ReverbFilterState ReverbFilterState = new();
 
         private SpuReverbFilter16Backup Reverb;
 
+        private Filter[] ReverbFilters;
+
         private SpuReverbHandler ReverbHandler;
-
-        #endregion
-
-        #region Methods
 
         private void OnEnable()
         {
@@ -92,8 +67,8 @@ namespace Wipeout
 
             h = h.Where((_, t) => t % 2 == 1 || t == h.Length / 2).ToArray();
 
-            RFS.Coefficients = h.Select(s => new float2(s)).ToArray();
-            RFS.Delays       = new float2[RFS.Coefficients.Length * 2];
+            ReverbFilterState.Coefficients = h.Select(s => new float2(s)).ToArray();
+            ReverbFilterState.Delays       = new float2[ReverbFilterState.Coefficients.Length * 2];
         }
 
         private void OnDisable()
@@ -126,6 +101,32 @@ namespace Wipeout
             };
         }
 
+        [BurstCompile(OptimizeFor = OptimizeFor.Performance)]
+        private static unsafe void TestVectorization2(
+            float2* source, float2* target, int samples, float2* h, int taps, float2* z, ref int state)
+        {
+            for (var i = 0; i < samples; i++)
+            {
+                z[state] = z[state + taps] = source[i];
+
+                var sample = float2.zero;
+
+                for (var j = 0; j < taps; j++)
+                {
+                    sample = math.mad(h[j], z[state + j], sample);
+                }
+
+                --state;
+
+                if (state < 0)
+                {
+                    state += taps;
+                }
+
+                target[i] = sample;
+            }
+        }
+
         private void CreateFilters()
         {
             // initially, the PSX reverb only works at a sample rate of 22050Hz
@@ -137,15 +138,15 @@ namespace Wipeout
 
             // have it 100% exact is IMPOSSIBLE: there are other things at play
 
-            var coefficients = Filter.LowPass(44100, LowPass, (double)Quality, Window);
+            var coefficients = Filter.LowPass(44100, ReverbLowPass, (double)ReverbQuality, ReverbWindow);
 
-            Filters = new[]
+            ReverbFilters = new[]
             {
                 new Filter(coefficients),
                 new Filter(coefficients)
             };
 
-            //Debug.Log($"{LowPass}, {Quality}, {Window}, {coefficients.Length}");
+            //Debug.Log($"{ReverbLowPass}, {ReverbQuality}, {ReverbWindow}, {coefficients.Length}");
         }
 
         private void FilterManaged(float[] data, int channels)
@@ -165,10 +166,10 @@ namespace Wipeout
                 var filterL = sourceL;
                 var filterR = sourceR;
 
-                if (ApplyFilter)
+                if (ReverbFilterEnabled)
                 {
-                    filterL = (float)Filters[0].Process(filterL);
-                    filterR = (float)Filters[1].Process(filterR);
+                    filterL = (float)ReverbFilters[0].Process(filterL);
+                    filterR = (float)ReverbFilters[1].Process(filterR);
                 }
 
                 var l1 = (short)(filterL * 32767.0f);
@@ -177,7 +178,7 @@ namespace Wipeout
                 var l2 = l1;
                 var r2 = r1;
 
-                if (ApplyReverb)
+                if (ReverbProcessEnabled)
                 {
                     Reverb.Process(l1, r1, out l2, out r2);
                 }
@@ -190,13 +191,6 @@ namespace Wipeout
             }
         }
 
-        #endregion
-
-        #region Vectorized
-
-        [SerializeField]
-        private ReverbFilterState RFS = new();
-
 
         private unsafe void FilterBurst(float[] data, int channels)
         {
@@ -205,19 +199,17 @@ namespace Wipeout
             Assert.AreEqual(0, length % 2);
 
             fixed (float* source = data)
-            fixed (float* target = RFS.Buffer)
-            fixed (float2* h = RFS.Coefficients)
-            fixed (float2* z = RFS.Delays)
+            fixed (float* target = ReverbFilterState.Buffer)
+            fixed (float2* h = ReverbFilterState.Coefficients)
+            fixed (float2* z = ReverbFilterState.Delays)
             {
                 var samples = length / channels;
 
-                TestVectorization2((float2*)source, (float2*)target, samples, h, RFS.Coefficients.Length, z,
-                    ref RFS.Position);
+                TestVectorization2((float2*)source, (float2*)target, samples, h, ReverbFilterState.Coefficients.Length, z,
+                    ref ReverbFilterState.Position);
 
                 UnsafeUtility.MemCpy(source, target, length * sizeof(float));
             }
         }
-
-        #endregion
     }
 }
