@@ -9,9 +9,9 @@ namespace Wipeout
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     [SuppressMessage("ReSharper", "IdentifierTypo")]
     [NoReorder]
-    public sealed class SpuReverbFilter16Backup2
+    public sealed class NativeReverb
     {
-        public SpuReverbFilter16Backup2(SpuReverbPreset reverb)
+        public NativeReverb(SpuReverbPreset reverb)
         {
             // note that this works "by accident" for 44100Hz
             // any other sample rate needs an adjusted preset

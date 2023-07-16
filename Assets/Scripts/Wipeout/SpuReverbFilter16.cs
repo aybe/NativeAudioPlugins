@@ -42,7 +42,7 @@ namespace Wipeout
         [SerializeField]
         private ReverbFilterState ReverbFilterState = new();
 
-        private readonly SpuReverbFilter16Backup2 ReverbBurst = new(SpuReverbPreset.Hall);
+        private readonly NativeReverb ReverbBurst = new(SpuReverbPreset.Hall);
 
         private SpuReverbFilter16Backup Reverb;
 
