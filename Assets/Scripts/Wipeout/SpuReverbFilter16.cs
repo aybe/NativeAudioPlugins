@@ -85,8 +85,6 @@ namespace Wipeout
 
         private void OnValidate()
         {
-            CreateFilters();
-
             if (!Enum.IsDefined(typeof(SpuReverbType), ReverbType))
             {
                 ReverbType = SpuReverbType.Off;
@@ -99,36 +97,8 @@ namespace Wipeout
                 SpuReverbType.Burst => FilterBurst,
                 _ => throw new ArgumentOutOfRangeException()
             };
-        }
 
-        [BurstCompile(OptimizeFor = OptimizeFor.Performance)]
-        private static unsafe void TestVectorization2(
-            float2* source, float2* target, int samples, float2* h, int taps, float2* z, ref int state)
-        {
-            for (var i = 0; i < samples; i++)
-            {
-                z[state] = z[state + taps] = source[i];
 
-                var sample = float2.zero;
-
-                for (var j = 0; j < taps; j++)
-                {
-                    sample = math.mad(h[j], z[state + j], sample);
-                }
-
-                --state;
-
-                if (state < 0)
-                {
-                    state += taps;
-                }
-
-                target[i] = sample;
-            }
-        }
-
-        private void CreateFilters()
-        {
             // initially, the PSX reverb only works at a sample rate of 22050Hz
             // but it turns out that it's possible to get it working at 44100Hz
             // problem #1: we must use that sample rate, fix: let OS do the SRC
@@ -198,17 +168,44 @@ namespace Wipeout
 
             Assert.AreEqual(0, length % 2);
 
+            var state = ReverbFilterState;
+
             fixed (float* source = data)
-            fixed (float* target = ReverbFilterState.Buffer)
-            fixed (float2* h = ReverbFilterState.Coefficients)
-            fixed (float2* z = ReverbFilterState.Delays)
+            fixed (float* target = state.Buffer)
+            fixed (float2* h = state.Coefficients)
+            fixed (float2* z = state.Delays)
             {
                 var samples = length / channels;
 
-                TestVectorization2((float2*)source, (float2*)target, samples, h, ReverbFilterState.Coefficients.Length, z,
-                    ref ReverbFilterState.Position);
+                FilterBurstImpl((float2*)source, (float2*)target, samples, h, state.Coefficients.Length, z, ref state.Position);
 
                 UnsafeUtility.MemCpy(source, target, length * sizeof(float));
+            }
+        }
+
+        [BurstCompile(OptimizeFor = OptimizeFor.Performance)]
+        private static unsafe void FilterBurstImpl(
+            float2* source, float2* target, int samples, float2* h, int taps, float2* z, ref int state)
+        {
+            for (var i = 0; i < samples; i++)
+            {
+                z[state] = z[state + taps] = source[i];
+
+                var sample = float2.zero;
+
+                for (var j = 0; j < taps; j++)
+                {
+                    sample = math.mad(h[j], z[state + j], sample);
+                }
+
+                --state;
+
+                if (state < 0)
+                {
+                    state += taps;
+                }
+
+                target[i] = sample;
             }
         }
     }
