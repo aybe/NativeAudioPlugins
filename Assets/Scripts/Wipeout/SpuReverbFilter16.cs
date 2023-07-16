@@ -162,7 +162,6 @@ namespace Wipeout
             }
         }
 
-
         private unsafe void FilterBurst(float[] data, int channels)
         {
             var length = data.Length;
@@ -182,15 +181,22 @@ namespace Wipeout
 
                 FilterBurstImpl(source2, target2, samples, h, state.Coefficients.Length, z, ref state.Position);
 
-                for (var i = 0; i < samples; i++)
-                {
-                    var float2 = target2[i];
-                    ReverbBurst.Process(float2.x, float2.y, out var l, out var r);
-                    source2[i] = new float2(
-                        source2[i].x * 0.5f * MixDry + l * 0.5f * MixWet,
-                        source2[i].y * 0.5f * MixDry + r * 0.5f * MixWet
-                    );
-                }
+                NewMethod(source2, target2, samples);
+            }
+        }
+
+        private unsafe void NewMethod(float2* source, float2* target, int samples)
+        {
+            for (var i = 0; i < samples; i++)
+            {
+                var sample = target[i];
+
+                ReverbBurst.Process(sample.x, sample.y, out var l, out var r);
+
+                var x = source[i].x * 0.5f * MixDry + l * 0.5f * MixWet;
+                var y = source[i].y * 0.5f * MixDry + r * 0.5f * MixWet;
+
+                source[i] = new float2(x, y);
             }
         }
 
